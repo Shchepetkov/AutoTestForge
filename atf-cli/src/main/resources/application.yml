@@ -1,0 +1,35 @@
+spring:
+  main:
+    web-application-type: none
+    banner-mode: "off"
+
+atf:
+  llm:
+    # Default provider: ollama (local, free). Override per run with --llm.
+    provider: ollama
+    temperature: 0.2
+    max-retries: 3
+    retry-backoff-millis: 2000
+    ollama:
+      base-url: http://localhost:11434
+      model: llama3.1
+      timeout: 5m
+    openai:
+      # Only registered when the key is present.
+      api-key: ${OPENAI_API_KEY:}
+      model: gpt-4o-mini
+      timeout: 3m
+  validation:
+    max-fix-attempts: 2
+    prefer-docker: true
+    maven-image: maven:3.9-eclipse-temurin-17
+    gradle-image: gradle:8.10-jdk17
+    timeout: 15m
+    cache-dir: ${user.home}/.autotestforge/cache
+
+logging:
+  level:
+    root: info
+    com.autotestforge: info
+    org.testcontainers: warn
+    com.github.dockerjava: warn
