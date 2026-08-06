@@ -1,31 +1,31 @@
 # AutoTestForge
 
-**AI-powered unit & integration test generator for Java projects.**
+**Генератор модульных и интеграционных тестов для Java-проектов на базе ИИ.**
 
-AutoTestForge scans any Maven or Gradle project, analyzes its source code at the AST level and generates meaningful, ready-to-run JUnit 5 tests with an LLM — including Mockito mocks, AssertJ assertions, positive/negative scenarios and edge cases. Generated tests can be executed in an isolated Docker sandbox; failures are fed back to the model for automatic self-correction.
+AutoTestForge сканирует любой Maven- или Gradle-проект, анализирует исходный код на уровне AST и с помощью LLM генерирует осмысленные, готовые к запуску тесты JUnit 5 — включая моки Mockito, проверки AssertJ, позитивные и негативные сценарии, а также граничные случаи. Сгенерированные тесты можно выполнить в изолированной Docker-песочнице; ошибки передаются обратно модели для автоматического самоисправления.
 
 ![Java 17](https://img.shields.io/badge/Java-17%2B-orange)
 ![Spring Boot 3](https://img.shields.io/badge/Spring%20Boot-3.5-green)
 ![LangChain4j](https://img.shields.io/badge/LangChain4j-1.0-blue)
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow)
+![Лицензия: MIT](https://img.shields.io/badge/License-MIT-yellow)
 
-## How it works
+## Как это работает
 
 ```mermaid
 flowchart LR
-    subgraph driving [Driving adapters]
+    subgraph driving [Входные адаптеры]
         CLI[atf-cli<br>picocli CLI]
         WEB[atf-web<br>REST + UI]
     end
-    subgraph core [atf-core - framework-free hexagon center]
+    subgraph core [atf-core - центр гексагона без привязки к фреймворкам]
         UC[TestGenerationService]
-        PORTS[Ports]
+        PORTS[Порты]
     end
-    subgraph driven [Driven adapters]
+    subgraph driven [Выходные адаптеры]
         SCAN[atf-scanner<br>JavaParser + SymbolSolver]
         AI[atf-ai<br>LangChain4j: Ollama / OpenAI]
-        WRITE[atf-writer<br>test files + pom/gradle updates]
-        VAL[atf-validator<br>Docker sandbox + report parsing]
+        WRITE[atf-writer<br>тестовые файлы + обновление pom/gradle]
+        VAL[atf-validator<br>Docker-песочница + разбор отчетов]
     end
     CLI --> UC
     WEB --> UC
@@ -34,112 +34,112 @@ flowchart LR
     PORTS --> AI
     PORTS --> WRITE
     PORTS --> VAL
-    VAL -->|failure logs| AI
+    VAL -->|логи ошибок| AI
 ```
 
-The pipeline for every eligible class:
+Пайплайн для каждого подходящего класса:
 
-1. **Scan** — recursively locate every `src/main/java` root (multi-module aware), parse each compilation unit with JavaParser + SymbolSolver, extract the public API, Javadoc, annotations, collaborators and the intra-project dependency graph.
-2. **Prompt** — build a self-contained prompt: full class source, method signatures with Javadoc, collaborators to mock, style constraints (Arrange-Act-Assert, `method_shouldX_whenY` naming, edge cases, error scenarios).
-3. **Generate** — call the configured LLM through LangChain4j; responses are retried with exponential backoff and validated with JavaParser (non-compilable output is rejected).
-4. **Write** — place the test in `src/test/java/<package>/<Class>Test.java` of the owning module and add any missing test dependencies to `pom.xml` / `build.gradle` / `build.gradle.kts`.
-5. **Validate & self-correct** *(optional)* — run the test in a disposable Docker container (Testcontainers); on failure, parse the JUnit XML report, send the failures back to the LLM and retry up to `max-fix-attempts` times. Falls back to a local process run when no Docker daemon is available.
+1. **Сканирование** — рекурсивно найти все корни `src/main/java` (с учетом multi-module-проектов), разобрать каждую единицу компиляции через JavaParser + SymbolSolver, извлечь публичный API, Javadoc, аннотации, зависимости класса и граф зависимостей внутри проекта.
+2. **Промпт** — собрать самодостаточный промпт: полный исходный код класса, сигнатуры методов с Javadoc, зависимости для мокирования, ограничения по стилю (Arrange-Act-Assert, именование `method_shouldX_whenY`, граничные случаи, сценарии ошибок).
+3. **Генерация** — вызвать настроенную LLM через LangChain4j; ответы повторяются с экспоненциальной задержкой и проверяются JavaParser (некомпилируемый результат отклоняется).
+4. **Запись** — поместить тест в `src/test/java/<package>/<Class>Test.java` соответствующего модуля и добавить недостающие тестовые зависимости в `pom.xml` / `build.gradle` / `build.gradle.kts`.
+5. **Валидация и самоисправление** *(опционально)* — запустить тест во временном Docker-контейнере (Testcontainers); при ошибке разобрать JUnit XML-отчет, отправить ошибки обратно в LLM и повторить до `max-fix-attempts` раз. Если Docker daemon недоступен, используется локальный запуск процесса.
 
-A failure for one class never aborts the run — it is recorded in the final report.
+Ошибка в одном классе никогда не прерывает весь запуск — она записывается в итоговый отчет.
 
-## Modules
+## Модули
 
-| Module | Role |
+| Модуль | Роль |
 |---|---|
-| `atf-core` | Domain model, ports and the orchestration service. Zero framework dependencies. |
-| `atf-scanner` | `ProjectScannerPort` adapter built on JavaParser (AST + symbol resolution). |
-| `atf-ai` | Prompt engineering, LangChain4j integration (Ollama, OpenAI), response parsing, offline fallback generator. |
-| `atf-writer` | Test file writer, `MavenPomUpdater` (Maven model API), `GradleBuildUpdater`. |
-| `atf-validator` | Docker test executor (Testcontainers), local-process fallback, JUnit XML report parser. |
-| `atf-cli` | Spring Boot + picocli command-line interface. |
-| `atf-web` | Spring Boot REST API + single-page UI with live progress. |
+| `atf-core` | Доменная модель, порты и сервис оркестрации. Без зависимостей от фреймворков. |
+| `atf-scanner` | Адаптер `ProjectScannerPort` на базе JavaParser (AST + разрешение символов). |
+| `atf-ai` | Проектирование промптов, интеграция LangChain4j (Ollama, OpenAI), разбор ответов, резервный автономный генератор. |
+| `atf-writer` | Запись тестовых файлов, `MavenPomUpdater` (Maven model API), `GradleBuildUpdater`. |
+| `atf-validator` | Исполнитель тестов в Docker (Testcontainers), резервный запуск в локальном процессе, парсер JUnit XML-отчетов. |
+| `atf-cli` | Интерфейс командной строки на Spring Boot + picocli. |
+| `atf-web` | Spring Boot REST API + одностраничный интерфейс с отображением прогресса в реальном времени. |
 
-## Quick start
+## Быстрый старт
 
-Requirements: JDK 17+, Maven 3.9+. For LLM generation: [Ollama](https://ollama.com) running locally (default) or an OpenAI API key. For sandboxed validation: Docker (optional — falls back to a local run).
+Требования: JDK 17+, Maven 3.9+. Для LLM-генерации: локально запущенная [Ollama](https://ollama.com) (по умолчанию) или API-ключ OpenAI. Для валидации в песочнице: Docker (опционально — при его отсутствии используется локальный запуск).
 
 ```bash
-# build everything
+# собрать все модули
 mvn -q package -DskipTests
 
-# pull the default local model once
+# один раз скачать локальную модель по умолчанию
 ollama pull llama3.1
 
-# generate tests for the bundled demo project
+# сгенерировать тесты для встроенного demo-проекта
 java -jar atf-cli/target/atf-cli-0.1.0.jar generate \
     --project-path examples/demo-project
 
-# generate + validate in Docker + self-correct failures
+# сгенерировать, провалидировать в Docker и самоисправить ошибки
 java -jar atf-cli/target/atf-cli-0.1.0.jar generate \
     --project-path examples/demo-project --validate
 
-# use OpenAI instead of the local model
+# использовать OpenAI вместо локальной модели
 OPENAI_API_KEY=sk-... java -jar atf-cli/target/atf-cli-0.1.0.jar generate \
     --project-path examples/demo-project --llm openai
 
-# no LLM at hand? deterministic offline smoke tests exercise the whole pipeline
+# нет доступа к LLM? детерминированные автономные smoke-тесты прогоняют весь пайплайн
 java -jar atf-cli/target/atf-cli-0.1.0.jar generate \
     --project-path examples/demo-project --llm offline --validate
 ```
 
-CLI options:
+Опции CLI:
 
-| Flag | Meaning |
+| Флаг | Значение |
 |---|---|
-| `--project-path, -p` | Root of the target project (required) |
-| `--classes, -c` | Comma-separated class filter (simple or fully qualified names) |
-| `--llm` | Provider override for the run: `ollama`, `openai`, `offline` |
-| `--validate` | Run generated tests in the sandbox and self-correct failures |
-| `--dry-run` | Generate without touching the target project |
-| `--max-fix-attempts` | Self-correction rounds per class (default 2) |
+| `--project-path, -p` | Корень целевого проекта (обязательно) |
+| `--classes, -c` | Фильтр классов через запятую (простые или полные имена классов) |
+| `--llm` | Переопределение провайдера на запуск: `ollama`, `openai`, `offline` |
+| `--validate` | Запустить сгенерированные тесты в песочнице и самоисправить ошибки |
+| `--dry-run` | Сгенерировать без изменения целевого проекта |
+| `--max-fix-attempts` | Количество раундов самоисправления на класс (по умолчанию 2) |
 
-### Web UI
+### Веб-интерфейс
 
 ```bash
 java -jar atf-web/target/atf-web-0.1.0.jar
-# open http://localhost:8080
+# открыть http://localhost:8080
 ```
 
-`POST /api/generation` starts an asynchronous job, `GET /api/generation/{id}` streams its progress; the bundled single-page UI does this for you with a live event log and a result table.
+`POST /api/generation` запускает асинхронную задачу, `GET /api/generation/{id}` транслирует ее прогресс; встроенный одностраничный интерфейс делает это за вас и показывает журнал событий в реальном времени и таблицу результатов.
 
-## Configuration
+## Конфигурация
 
-Everything lives under the `atf.*` prefix (`application.yml`, environment variables or `--atf.llm.provider=...` style flags):
+Все настройки находятся под префиксом `atf.*` (`application.yml`, переменные окружения или флаги вида `--atf.llm.provider=...`):
 
-| Property | Default | Description |
+| Параметр | Значение по умолчанию | Описание |
 |---|---|---|
-| `atf.llm.provider` | `ollama` | Default provider: `ollama`, `openai`, `offline` |
-| `atf.llm.temperature` | `0.2` | Sampling temperature (low = deterministic tests) |
-| `atf.llm.max-retries` | `3` | LLM call retries with exponential backoff |
-| `atf.llm.ollama.base-url` | `http://localhost:11434` | Ollama endpoint |
-| `atf.llm.ollama.model` | `llama3.1` | Any local model (mistral, codellama, ...) |
-| `atf.llm.openai.api-key` | `${OPENAI_API_KEY}` | OpenAI key; provider registered only when present |
-| `atf.llm.openai.model` | `gpt-4o-mini` | OpenAI model |
-| `atf.validation.max-fix-attempts` | `2` | Self-correction rounds per class |
-| `atf.validation.prefer-docker` | `true` | Use Docker when available, local process otherwise |
-| `atf.validation.maven-image` | `maven:3.9-eclipse-temurin-17` | Sandbox image for Maven targets |
-| `atf.validation.gradle-image` | `gradle:8.10-jdk17` | Sandbox image for Gradle targets |
+| `atf.llm.provider` | `ollama` | Провайдер по умолчанию: `ollama`, `openai`, `offline` |
+| `atf.llm.temperature` | `0.2` | Температура сэмплирования (ниже = более детерминированные тесты) |
+| `atf.llm.max-retries` | `3` | Повторные вызовы LLM с экспоненциальной задержкой |
+| `atf.llm.ollama.base-url` | `http://localhost:11434` | Адрес Ollama |
+| `atf.llm.ollama.model` | `llama3.1` | Любая локальная модель (mistral, codellama, ...) |
+| `atf.llm.openai.api-key` | `${OPENAI_API_KEY}` | Ключ OpenAI; провайдер регистрируется только при его наличии |
+| `atf.llm.openai.model` | `gpt-4o-mini` | Модель OpenAI |
+| `atf.validation.max-fix-attempts` | `2` | Раунды самоисправления на класс |
+| `atf.validation.prefer-docker` | `true` | Использовать Docker, когда он доступен; иначе локальный процесс |
+| `atf.validation.maven-image` | `maven:3.9-eclipse-temurin-17` | Образ песочницы для Maven-проектов |
+| `atf.validation.gradle-image` | `gradle:8.10-jdk17` | Образ песочницы для Gradle-проектов |
 
-## Design notes
+## Архитектурные заметки
 
-- **Hexagonal architecture.** `atf-core` contains only the domain and ports; every technology (JavaParser, LangChain4j, Docker, Spring) is an adapter that can be swapped by changing one bean. The core is fully unit-tested with mocked ports.
-- **LLM output is never trusted.** Responses must parse as valid Java (checked with JavaParser) before anything touches the target project; providers are behind a routing layer so a per-run `--llm` override needs no restart.
-- **Deterministic fallback.** The `offline` provider generates reflection-based smoke tests without any model — useful in CI and for exercising the full pipeline end-to-end.
-- **Isolation.** Generated tests run in a disposable container with the project bind-mounted and a persistent dependency cache; the host toolchain is never used unless Docker is unavailable.
-- **Error handling.** A dedicated exception hierarchy (`ScanException`, `LlmException`, `TestWriteException`, `ValidationException`) keeps failures per-class; structured MDC logging (`projectPath`, `className`) makes runs traceable in `logs/autotestforge.log`.
+- **Гексагональная архитектура.** `atf-core` содержит только домен и порты; каждая технология (JavaParser, LangChain4j, Docker, Spring) является адаптером, который можно заменить сменой одного bean-компонента. Ядро полностью покрыто модульными тестами с моками портов.
+- **Выход LLM не считается надежным.** Ответы должны разбираться как корректный Java-код (проверяется JavaParser) до любых изменений целевого проекта; провайдеры находятся за слоем маршрутизации, поэтому переопределение `--llm` для отдельного запуска не требует перезапуска.
+- **Детерминированный резервный режим.** Провайдер `offline` генерирует smoke-тесты на основе reflection без модели — это полезно в CI и для сквозной проверки всего пайплайна.
+- **Изоляция.** Сгенерированные тесты запускаются во временном контейнере с проектом, подключенным через bind mount, и постоянным кэшем зависимостей; инструменты хоста не используются, если доступен Docker.
+- **Обработка ошибок.** Отдельная иерархия исключений (`ScanException`, `LlmException`, `TestWriteException`, `ValidationException`) сохраняет ошибки на уровне классов; структурированное MDC-логирование (`projectPath`, `className`) позволяет отслеживать запуски в `logs/autotestforge.log`.
 
-## Roadmap
+## Планы развития
 
-- Dogfooding: generate AutoTestForge's own integration tests with AutoTestForge.
-- Coverage-guided generation (JaCoCo feedback loop targeting uncovered branches).
-- Repository-level context (RAG over the dependency graph) for cross-class integration tests.
-- Gradle Tooling API integration for precise dependency insertion.
+- Dogfooding: генерировать собственные интеграционные тесты AutoTestForge с помощью AutoTestForge.
+- Генерация с учетом покрытия (цикл обратной связи JaCoCo для непокрытых веток).
+- Контекст на уровне репозитория (RAG по графу зависимостей) для интеграционных тестов между несколькими классами.
+- Интеграция Gradle Tooling API для точного добавления зависимостей.
 
-## License
+## Лицензия
 
 [MIT](LICENSE)
