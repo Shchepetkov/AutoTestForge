@@ -134,7 +134,7 @@
     </div>
     <div class="checks">
       <label><input type="checkbox" id="validate"> Валидировать в песочнице и самоисправлять</label>
-      <label><input type="checkbox" id="dryRun"> Dry run</label>
+      <label><input type="checkbox" id="dryRun"> Пробный запуск без записи файлов</label>
       <label><input type="checkbox" id="context"> Использовать внешний контекст</label>
     </div>
   </div>
@@ -253,13 +253,13 @@
           <input type="text" class="mcp-args" placeholder="-y @your-org/confluence-mcp-server" value="${escapeAttribute(initial.args || '')}">
         </div>
         <div>
-          <label>Tool name</label>
+          <label>Имя MCP tool</label>
           <input type="text" class="mcp-tool" placeholder="search" value="${escapeAttribute(initial.toolName || '')}">
         </div>
       </div>
       <div class="row">
         <div>
-          <label>Query argument</label>
+          <label>Аргумент запроса</label>
           <input type="text" class="mcp-query-argument" placeholder="query" value="${escapeAttribute(initial.queryArgument || 'query')}">
         </div>
         <div>
@@ -325,11 +325,11 @@
 
   function render(job) {
     const state = document.getElementById('jobState');
-    state.textContent = job.state;
+    state.textContent = statusText(job.state);
     state.className = 'status-' + job.state;
 
     const events = document.getElementById('events');
-    events.textContent = job.events.join('\n') + (job.error ? '\nERROR: ' + job.error : '');
+    events.textContent = job.events.join('\n') + (job.error ? '\nОШИБКА: ' + job.error : '');
     events.scrollTop = events.scrollHeight;
 
     if (job.results.length > 0 || job.state !== 'RUNNING') {
@@ -341,7 +341,7 @@
         const tr = document.createElement('tr');
         tr.innerHTML =
           '<td class="mono">' + escapeHtml(r.classFqn) + '</td>' +
-          '<td class="' + (ok ? 'ok' : 'bad') + '">' + r.status + '</td>' +
+          '<td class="' + (ok ? 'ok' : 'bad') + '">' + statusText(r.status) + '</td>' +
           '<td>' + r.llmAttempts + '</td>' +
           '<td class="mono">' + escapeHtml(r.errorMessage || r.writtenPath || '-') + '</td>';
         rows.appendChild(tr);
@@ -358,6 +358,19 @@
 
   function escapeAttribute(value) {
     return escapeHtml(value).replace(/"/g, '&quot;');
+  }
+
+  function statusText(status) {
+    return {
+      RUNNING: 'ВЫПОЛНЯЕТСЯ',
+      COMPLETED: 'ЗАВЕРШЕНО',
+      FAILED: 'ОШИБКА',
+      GENERATED: 'СГЕНЕРИРОВАН',
+      WRITTEN: 'ЗАПИСАН',
+      VALIDATED: 'ПРОВЕРЕН',
+      FIXED_AND_VALIDATED: 'ИСПРАВЛЕН И ПРОВЕРЕН',
+      VALIDATION_FAILED: 'ОШИБКА ВАЛИДАЦИИ'
+    }[status] || status;
   }
 
   addMcpSource();
