@@ -127,7 +127,7 @@ public class TestGenerationService implements GenerateTestsUseCase {
         int llmAttempts = 0;
         try {
             log.info("Generating tests for {}", target.fullyQualifiedName());
-            ExternalTestContext externalContext = externalContextPort.fetchContext(target, request);
+            ExternalTestContext externalContext = externalContext(target, request);
             if (!externalContext.isEmpty()) {
                 log.info("Loaded {} external context snippet(s) for {}",
                         externalContext.snippets().size(), target.fullyQualifiedName());
@@ -160,6 +160,13 @@ public class TestGenerationService implements GenerateTestsUseCase {
         } finally {
             MDC.remove("className");
         }
+    }
+
+    private ExternalTestContext externalContext(JavaClassInfo target, TestGenerationRequest request) {
+        List<com.autotestforge.core.domain.ExternalContextSnippet> snippets = new ArrayList<>(
+                request.externalContext().inlineSnippets());
+        snippets.addAll(externalContextPort.fetchContext(target, request).snippets());
+        return snippets.isEmpty() ? ExternalTestContext.empty() : new ExternalTestContext(snippets);
     }
 
     /**

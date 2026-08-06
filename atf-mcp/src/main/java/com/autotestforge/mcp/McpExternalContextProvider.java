@@ -1,6 +1,7 @@
 package com.autotestforge.mcp;
 
 import com.autotestforge.core.domain.ExternalContextRequest;
+import com.autotestforge.core.domain.ExternalContextSourceRequest;
 import com.autotestforge.core.domain.ExternalContextSnippet;
 import com.autotestforge.core.domain.ExternalTestContext;
 import com.autotestforge.core.domain.JavaClassInfo;
@@ -49,11 +50,21 @@ public class McpExternalContextProvider implements ExternalContextPort {
     }
 
     private List<McpContextSource> selectedSources(ExternalContextRequest contextRequest) {
-        return sources.stream()
+        List<McpContextSource> allSources = new ArrayList<>(sources);
+        allSources.addAll(contextRequest.mcpSources().stream()
+                .map(this::toMcpSource)
+                .toList());
+        return allSources.stream()
                 .filter(McpContextSource::configured)
                 .filter(source -> contextRequest.sources().isEmpty()
                         || contextRequest.sources().contains(source.name()))
                 .toList();
+    }
+
+    private McpContextSource toMcpSource(ExternalContextSourceRequest source) {
+        return new McpContextSource(source.name(), source.enabled(), source.command(), source.args(),
+                source.toolName(), source.queryArgument(), source.queryTemplate(), source.arguments(),
+                source.timeout(), source.maxChars());
     }
 
     private List<ExternalContextSnippet> fetchFromSource(McpContextSource source,
