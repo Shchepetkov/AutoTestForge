@@ -2,6 +2,8 @@ package com.autotestforge.web.job;
 
 import com.autotestforge.core.domain.ClassGenerationResult;
 import com.autotestforge.core.domain.ExternalContextRequest;
+import com.autotestforge.core.domain.ExternalContextSnippet;
+import com.autotestforge.core.domain.ExternalContextSourceRequest;
 import com.autotestforge.core.domain.ProgressListener;
 import com.autotestforge.core.domain.TestGenerationReport;
 import com.autotestforge.core.domain.TestGenerationRequest;
@@ -83,8 +85,43 @@ public class GenerationJobService {
 
     private ExternalContextRequest externalContextRequest(StartGenerationRequest request) {
         List<String> sources = request.contextSources() == null ? List.of() : request.contextSources();
-        boolean enabled = request.context() || request.contextQuery() != null || !sources.isEmpty();
-        return new ExternalContextRequest(enabled, request.contextQuery(), sources);
+        List<ExternalContextSourceRequest> mcpSources = mcpSources(request);
+        List<ExternalContextSnippet> inlineSnippets = contextFiles(request);
+        boolean enabled = request.context() || request.contextQuery() != null || !sources.isEmpty()
+                || !mcpSources.isEmpty() || !inlineSnippets.isEmpty();
+        return new ExternalContextRequest(enabled, request.contextQuery(), sources, mcpSources, inlineSnippets);
+    }
+
+    private List<ExternalContextSourceRequest> mcpSources(StartGenerationRequest request) {
+        if (request.mcpSources() == null) {
+            return List.of();
+        }
+        return request.mcpSources().stream()
+                .filter(source -> source != null && source.enabled())
+                .map(source -> new ExternalContextSourceRequest(
+                        source.name(),
+                        source.enabled(),
+                        source.command(),
+                        source.args(),
+                        source.toolName(),
+                        source.queryArgument(),
+                        source.queryTemplate(),
+                        Map.of(),
+                        null,
+                        source.maxChars()))
+                .toList();
+    }
+
+    private List<ExternalContextSnippet> contextFiles(StartGenerationRequest request) {
+        if (request.contextFiles() == null) {
+            return List.of();
+        }
+        return request.contextFiles().stream()
+                .filter(file -> file != null && file.content() != null && !file.content().isBlank())
+                .map(file -> new ExternalContextSnippet("uploaded-file",
+                        file.name() == null || file.name().isBlank() ? "Uploaded TMS context" : file.name(),
+                        file.content()))
+                .toList();
     }
 
     @PreDestroy

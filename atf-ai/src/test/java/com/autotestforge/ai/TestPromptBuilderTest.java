@@ -80,7 +80,8 @@ class TestPromptBuilderTest {
                 .contains("VIP customers receive expedited handling")
                 .contains("Source: zephyr")
                 .contains("Verify cancelled orders cannot be paid")
-                .contains("Use this context to choose meaningful business scenarios");
+                .contains("Zephyr/TMS XML exports")
+                .contains("Business/TMS coverage");
     }
 
     @Test

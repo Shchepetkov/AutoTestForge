@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -57,6 +57,16 @@
   .row > div { flex: 1; min-width: 200px; }
   .checks { display: flex; gap: 1.5rem; margin-top: 1rem; align-items: center; }
   .checks label { display: flex; align-items: center; gap: .4rem; margin: 0; cursor: pointer; }
+  .hint { color: var(--muted); font-size: .86rem; margin-top: .4rem; line-height: 1.45; }
+  .mcp-source {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem;
+    margin-top: .9rem;
+    background: #0d1117;
+  }
+  .mcp-source h4 { display: flex; justify-content: space-between; align-items: center; margin-bottom: .4rem; }
+  .mcp-source h4 span { color: var(--muted); font-size: .9rem; font-weight: 500; }
   button {
     margin-top: 1.2rem;
     background: var(--accent);
@@ -67,6 +77,8 @@
     border-radius: 8px;
     cursor: pointer;
   }
+  button.secondary { background: #30363d; margin-right: .6rem; }
+  button.danger { background: var(--red); padding: .35rem .7rem; font-size: .8rem; margin-top: 0; }
   button:disabled { opacity: .5; cursor: wait; }
   .status-RUNNING { color: var(--yellow); }
   .status-COMPLETED { color: var(--green); }
@@ -92,58 +104,75 @@
   .bad { color: var(--red); }
   .hidden { display: none; }
   .summary { margin-top: 1rem; color: var(--muted); }
+  input[type=file] { margin-top: .35rem; color: var(--muted); }
 </style>
 </head>
 <body>
 <div class="container">
   <header>
     <h1>AutoTestForge</h1>
-    <p>AI-powered unit &amp; integration test generator for Java projects</p>
+    <p>Генератор модульных и интеграционных тестов для Java-проектов на базе ИИ</p>
   </header>
 
   <div class="card">
-    <label for="projectPath">Project path (on this machine)</label>
-    <input type="text" id="projectPath" placeholder="C:\projects\my-service or /home/me/my-service">
+    <label for="projectPath">Путь к проекту на этой машине</label>
+    <input type="text" id="projectPath" placeholder="C:\projects\my-service или /home/me/my-service">
     <div class="row">
       <div>
-        <label for="classes">Classes filter (optional, comma-separated)</label>
+        <label for="classes">Фильтр классов (опционально, через запятую)</label>
         <input type="text" id="classes" placeholder="OrderService, com.acme.PriceCalculator">
       </div>
       <div>
-        <label for="llm">LLM provider</label>
+        <label for="llm">LLM-провайдер</label>
         <select id="llm">
-          <option value="">default (configured)</option>
-          <option value="ollama">ollama (local)</option>
+          <option value="">по умолчанию из конфигурации</option>
+          <option value="ollama">ollama (локально)</option>
           <option value="openai">openai</option>
-          <option value="offline">offline (no LLM)</option>
+          <option value="offline">offline (без LLM)</option>
         </select>
       </div>
     </div>
     <div class="checks">
-      <label><input type="checkbox" id="validate"> Validate in sandbox &amp; self-correct</label>
+      <label><input type="checkbox" id="validate"> Валидировать в песочнице и самоисправлять</label>
       <label><input type="checkbox" id="dryRun"> Dry run</label>
-      <label><input type="checkbox" id="context"> External MCP context</label>
+      <label><input type="checkbox" id="context"> Использовать внешний контекст</label>
     </div>
+  </div>
+
+  <div class="card">
+    <h3>Внешний контекст для LLM</h3>
+    <p class="hint">
+      Можно добавить несколько MCP-источников (например, отдельные серверы Confluence, Jira, Zephyr)
+      и/или загрузить XML/JSON/TXT экспорт из Zephyr/TMS. Этот контекст попадет в prompt, а LLM
+      должна использовать его для сценариев и добавить в тест JavaDoc-заметку о покрытии и пробелах.
+    </p>
     <div class="row">
       <div>
-        <label for="contextSources">MCP context sources (optional, comma-separated)</label>
-        <input type="text" id="contextSources" placeholder="confluence, zephyr">
+        <label for="contextSources">Источники из application.yml (опционально, через запятую)</label>
+        <input type="text" id="contextSources" placeholder="confluence, jira">
       </div>
       <div>
-        <label for="contextQuery">MCP search query template (optional)</label>
+        <label for="contextQuery">Общий шаблон поискового запроса MCP (опционально)</label>
         <textarea id="contextQuery" placeholder="Find requirements and TMS tests for ${fullyQualifiedName}. Methods: ${methods}"></textarea>
       </div>
     </div>
-    <button id="startBtn" onclick="start()">Generate tests</button>
+    <div id="mcpSources"></div>
+    <button class="secondary" onclick="addMcpSource()">+ Добавить MCP источник</button>
+
+    <label for="contextFiles">Файлы контекста, например XML из Zephyr/TMS</label>
+    <input type="file" id="contextFiles" multiple accept=".xml,.json,.txt,.md">
+    <p class="hint">Файлы читаются браузером и отправляются как текстовый контекст; на сервере они не сохраняются как отдельные файлы.</p>
+
+    <button id="startBtn" onclick="start()">Сгенерировать тесты</button>
   </div>
 
   <div class="card hidden" id="jobCard">
-    <h3>Job <span id="jobState" class="status-RUNNING">RUNNING</span></h3>
+    <h3>Задача <span id="jobState" class="status-RUNNING">RUNNING</span></h3>
     <div id="events"></div>
     <div id="resultBlock" class="hidden">
       <table>
         <thead>
-        <tr><th>Class</th><th>Status</th><th>LLM calls</th><th>Details</th></tr>
+        <tr><th>Класс</th><th>Статус</th><th>LLM-вызовы</th><th>Детали</th></tr>
         </thead>
         <tbody id="resultRows"></tbody>
       </table>
@@ -154,10 +183,13 @@
 
 <script>
   let pollTimer = null;
+  let mcpSourceCounter = 0;
 
   async function start() {
     const btn = document.getElementById('startBtn');
     btn.disabled = true;
+    const mcpSources = collectMcpSources();
+    const contextFiles = await readContextFiles();
     const body = {
       projectPath: document.getElementById('projectPath').value.trim(),
       classes: document.getElementById('classes').value.split(',').map(s => s.trim()).filter(Boolean),
@@ -166,7 +198,9 @@
       dryRun: document.getElementById('dryRun').checked,
       context: document.getElementById('context').checked,
       contextSources: document.getElementById('contextSources').value.split(',').map(s => s.trim()).filter(Boolean),
-      contextQuery: document.getElementById('contextQuery').value.trim() || null
+      contextQuery: document.getElementById('contextQuery').value.trim() || null,
+      mcpSources,
+      contextFiles
     };
     try {
       const response = await fetch('/api/generation', {
@@ -176,7 +210,7 @@
       });
       if (!response.ok) {
         const problem = await response.json().catch(() => ({}));
-        alert('Failed to start: ' + (problem.detail || response.status));
+        alert('Не удалось запустить: ' + (problem.detail || response.status));
         btn.disabled = false;
         return;
       }
@@ -185,9 +219,94 @@
       document.getElementById('resultBlock').classList.add('hidden');
       poll(job.id);
     } catch (e) {
-      alert('Request failed: ' + e);
+      alert('Ошибка запроса: ' + e);
       btn.disabled = false;
     }
+  }
+
+  function addMcpSource(initial = {}) {
+    const id = ++mcpSourceCounter;
+    const source = document.createElement('div');
+    source.className = 'mcp-source';
+    source.dataset.sourceId = String(id);
+    source.innerHTML = `
+      <h4>
+        <span>MCP источник #${id}</span>
+        <button class="danger" onclick="removeMcpSource(${id})">Удалить</button>
+      </h4>
+      <div class="checks">
+        <label><input type="checkbox" class="mcp-enabled" checked> Включен</label>
+      </div>
+      <div class="row">
+        <div>
+          <label>Имя источника</label>
+          <input type="text" class="mcp-name" placeholder="confluence" value="${escapeAttribute(initial.name || '')}">
+        </div>
+        <div>
+          <label>Команда MCP сервера</label>
+          <input type="text" class="mcp-command" placeholder="npx" value="${escapeAttribute(initial.command || '')}">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Аргументы команды</label>
+          <input type="text" class="mcp-args" placeholder="-y @your-org/confluence-mcp-server" value="${escapeAttribute(initial.args || '')}">
+        </div>
+        <div>
+          <label>Tool name</label>
+          <input type="text" class="mcp-tool" placeholder="search" value="${escapeAttribute(initial.toolName || '')}">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Query argument</label>
+          <input type="text" class="mcp-query-argument" placeholder="query" value="${escapeAttribute(initial.queryArgument || 'query')}">
+        </div>
+        <div>
+          <label>Лимит символов</label>
+          <input type="text" class="mcp-max-chars" placeholder="8000" value="${escapeAttribute(initial.maxChars || '8000')}">
+        </div>
+      </div>
+      <label>Query template для этого источника</label>
+      <textarea class="mcp-query-template" placeholder="Find requirements for ${'${fullyQualifiedName}'}. Methods: ${'${methods}'}">${escapeHtml(initial.queryTemplate || '')}</textarea>
+    `;
+    document.getElementById('mcpSources').appendChild(source);
+  }
+
+  function removeMcpSource(id) {
+    document.querySelector(`[data-source-id="${id}"]`)?.remove();
+  }
+
+  function collectMcpSources() {
+    return [...document.querySelectorAll('.mcp-source')]
+      .map(source => ({
+        name: value(source, '.mcp-name'),
+        enabled: source.querySelector('.mcp-enabled').checked,
+        command: value(source, '.mcp-command'),
+        args: splitArgs(value(source, '.mcp-args')),
+        toolName: value(source, '.mcp-tool'),
+        queryArgument: value(source, '.mcp-query-argument') || 'query',
+        queryTemplate: value(source, '.mcp-query-template'),
+        maxChars: Number.parseInt(value(source, '.mcp-max-chars') || '8000', 10)
+      }))
+      .filter(source => source.enabled && source.name && source.command && source.toolName);
+  }
+
+  function value(root, selector) {
+    return root.querySelector(selector).value.trim();
+  }
+
+  function splitArgs(args) {
+    return args ? args.split(/\s+/).filter(Boolean) : [];
+  }
+
+  async function readContextFiles() {
+    const files = [...document.getElementById('contextFiles').files];
+    return Promise.all(files.map(file => file.text().then(content => ({
+      name: file.name,
+      type: file.type || 'text/plain',
+      content
+    }))));
   }
 
   function poll(id) {
@@ -236,6 +355,12 @@
     div.textContent = value == null ? '' : value;
     return div.innerHTML;
   }
+
+  function escapeAttribute(value) {
+    return escapeHtml(value).replace(/"/g, '&quot;');
+  }
+
+  addMcpSource();
 </script>
 </body>
 </html>

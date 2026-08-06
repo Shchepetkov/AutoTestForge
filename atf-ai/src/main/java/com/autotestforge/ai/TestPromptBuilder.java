@@ -56,6 +56,9 @@ public class TestPromptBuilder {
             7. %{styleHint}
             8. The code must compile as-is: no TODOs, no placeholders, no references to classes that are \
             not part of the class under test, its collaborators, the JDK, JUnit, Mockito or AssertJ.
+            9. If external business/TMS context is present, analyze it before writing tests and add a concise \
+            class-level Javadoc section named "Business/TMS coverage" that lists covered scenarios and any \
+            important gaps that cannot be verified from this class alone.
 
             ## Output format
             Return EXACTLY ONE fenced Java code block containing the full test class source \
@@ -92,6 +95,7 @@ public class TestPromptBuilder {
             Delete a test method only when the scenario it checks is genuinely impossible.
             3. Keep JUnit 5 + Mockito + AssertJ, the AAA structure and the naming convention.
             4. The code must compile as-is.
+            5. Preserve or update the "Business/TMS coverage" class-level Javadoc when external context is present.
 
             ## Output format
             Return EXACTLY ONE fenced Java code block with the complete corrected test class. \
@@ -191,9 +195,10 @@ public class TestPromptBuilder {
                 .collect(Collectors.joining(System.lineSeparator() + System.lineSeparator()));
         return """
                 ## External business and test-management context
-                Use this context to choose meaningful business scenarios, expected outcomes, edge cases and \
-                test names. Do not reference external IDs or systems from the Java code unless they are part \
-                of the class under test.
+                This may include Confluence pages, requirements, Zephyr/TMS XML exports or existing test cases. \
+                Analyze it to choose meaningful business scenarios, expected outcomes, edge cases, test names \
+                and coverage notes. Do not reference external IDs or systems from executable Java code unless \
+                they are part of the class under test.
                 %s
                 """.formatted(trim(snippets, MAX_EXTERNAL_CONTEXT_CHARS)).stripTrailing();
     }

@@ -9,9 +9,16 @@ import java.util.List;
 public record ExternalContextRequest(
         boolean enabled,
         String query,
-        List<String> sources) {
+        List<String> sources,
+        List<ExternalContextSourceRequest> mcpSources,
+        List<ExternalContextSnippet> inlineSnippets) {
 
-    private static final ExternalContextRequest DISABLED = new ExternalContextRequest(false, null, List.of());
+    private static final ExternalContextRequest DISABLED =
+            new ExternalContextRequest(false, null, List.of(), List.of(), List.of());
+
+    public ExternalContextRequest(boolean enabled, String query, List<String> sources) {
+        this(enabled, query, sources, List.of(), List.of());
+    }
 
     public ExternalContextRequest {
         query = query == null || query.isBlank() ? null : query.strip();
@@ -22,6 +29,9 @@ public record ExternalContextRequest(
                 .map(source -> source.strip().toLowerCase())
                 .distinct()
                 .toList();
+        mcpSources = mcpSources == null ? List.of() : List.copyOf(mcpSources);
+        inlineSnippets = inlineSnippets == null ? List.of() : List.copyOf(inlineSnippets);
+        enabled = enabled || !mcpSources.isEmpty() || !inlineSnippets.isEmpty();
     }
 
     public static ExternalContextRequest disabled() {
