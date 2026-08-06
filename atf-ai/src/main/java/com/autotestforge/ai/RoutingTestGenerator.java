@@ -1,5 +1,6 @@
 package com.autotestforge.ai;
 
+import com.autotestforge.core.domain.ExternalTestContext;
 import com.autotestforge.core.domain.GeneratedTestFile;
 import com.autotestforge.core.domain.JavaClassInfo;
 import com.autotestforge.core.domain.ValidationResult;
@@ -29,14 +30,15 @@ public class RoutingTestGenerator implements AiTestGeneratorPort {
     }
 
     @Override
-    public GeneratedTestFile generate(JavaClassInfo classInfo, String provider) {
-        return resolve(provider).generate(classInfo, provider);
+    public GeneratedTestFile generate(JavaClassInfo classInfo, String provider, ExternalTestContext externalContext) {
+        return resolve(provider).generate(classInfo, provider, externalContext);
     }
 
     @Override
     public GeneratedTestFile fix(JavaClassInfo classInfo, GeneratedTestFile previousTest,
-                                 ValidationResult validationResult, String provider) {
-        return resolve(provider).fix(classInfo, previousTest, validationResult, provider);
+                                 ValidationResult validationResult, String provider,
+                                 ExternalTestContext externalContext) {
+        return resolve(provider).fix(classInfo, previousTest, validationResult, provider, externalContext);
     }
 
     private AiTestGeneratorPort resolve(String provider) {

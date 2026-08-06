@@ -42,7 +42,7 @@
     margin-bottom: 1.5rem;
   }
   label { display: block; font-size: .85rem; color: var(--muted); margin: .8rem 0 .3rem; }
-  input[type=text], select {
+  input[type=text], select, textarea {
     width: 100%;
     padding: .55rem .7rem;
     background: #0d1117;
@@ -51,7 +51,8 @@
     border-radius: 8px;
     font-size: .95rem;
   }
-  input[type=text]:focus, select:focus { outline: 1px solid var(--accent); }
+  input[type=text]:focus, select:focus, textarea:focus { outline: 1px solid var(--accent); }
+  textarea { min-height: 70px; resize: vertical; }
   .row { display: flex; gap: 1rem; flex-wrap: wrap; }
   .row > div { flex: 1; min-width: 200px; }
   .checks { display: flex; gap: 1.5rem; margin-top: 1rem; align-items: center; }
@@ -121,6 +122,17 @@
     <div class="checks">
       <label><input type="checkbox" id="validate"> Validate in sandbox &amp; self-correct</label>
       <label><input type="checkbox" id="dryRun"> Dry run</label>
+      <label><input type="checkbox" id="context"> External MCP context</label>
+    </div>
+    <div class="row">
+      <div>
+        <label for="contextSources">MCP context sources (optional, comma-separated)</label>
+        <input type="text" id="contextSources" placeholder="confluence, zephyr">
+      </div>
+      <div>
+        <label for="contextQuery">MCP search query template (optional)</label>
+        <textarea id="contextQuery" placeholder="Find requirements and TMS tests for ${fullyQualifiedName}. Methods: ${methods}"></textarea>
+      </div>
     </div>
     <button id="startBtn" onclick="start()">Generate tests</button>
   </div>
@@ -151,7 +163,10 @@
       classes: document.getElementById('classes').value.split(',').map(s => s.trim()).filter(Boolean),
       llm: document.getElementById('llm').value || null,
       validate: document.getElementById('validate').checked,
-      dryRun: document.getElementById('dryRun').checked
+      dryRun: document.getElementById('dryRun').checked,
+      context: document.getElementById('context').checked,
+      contextSources: document.getElementById('contextSources').value.split(',').map(s => s.trim()).filter(Boolean),
+      contextQuery: document.getElementById('contextQuery').value.trim() || null
     };
     try {
       const response = await fetch('/api/generation', {

@@ -3,6 +3,7 @@ package com.autotestforge.core.service;
 import com.autotestforge.core.domain.BuildTool;
 import com.autotestforge.core.domain.ClassGenerationResult;
 import com.autotestforge.core.domain.ClassKind;
+import com.autotestforge.core.domain.ExternalTestContext;
 import com.autotestforge.core.domain.GeneratedTestFile;
 import com.autotestforge.core.domain.GenerationStatus;
 import com.autotestforge.core.domain.JavaClassInfo;
@@ -14,6 +15,7 @@ import com.autotestforge.core.exception.AtfException;
 import com.autotestforge.core.port.in.GenerateTestsUseCase;
 import com.autotestforge.core.port.out.AiTestGeneratorPort;
 import com.autotestforge.core.port.out.BuildToolPort;
+import com.autotestforge.core.port.out.ExternalContextPort;
 import com.autotestforge.core.port.out.ProjectScannerPort;
 import com.autotestforge.core.port.out.TestValidatorPort;
 import com.autotestforge.core.port.out.TestWriterPort;
@@ -45,17 +47,20 @@ public class TestGenerationService implements GenerateTestsUseCase {
     private final TestWriterPort testWriter;
     private final BuildToolPort buildToolPort;
     private final TestValidatorPort validator;
+    private final ExternalContextPort externalContextPort;
 
     public TestGenerationService(ProjectScannerPort scanner,
                                  AiTestGeneratorPort testGenerator,
                                  TestWriterPort testWriter,
                                  BuildToolPort buildToolPort,
-                                 TestValidatorPort validator) {
+                                 TestValidatorPort validator,
+                                 ExternalContextPort externalContextPort) {
         this.scanner = scanner;
         this.testGenerator = testGenerator;
         this.testWriter = testWriter;
         this.buildToolPort = buildToolPort;
         this.validator = validator;
+        this.externalContextPort = externalContextPort == null ? ExternalContextPort.NO_OP : externalContextPort;
     }
 
     @Override
@@ -122,7 +127,12 @@ public class TestGenerationService implements GenerateTestsUseCase {
         int llmAttempts = 0;
         try {
             log.info("Generating tests for {}", target.fullyQualifiedName());
-            GeneratedTestFile test = testGenerator.generate(target, request.llmProvider());
+            ExternalTestContext externalContext = externalContextPort.fetchContext(target, request);
+            if (!externalContext.isEmpty()) {
+                log.info("Loaded {} external context snippet(s) for {}",
+                        externalContext.snippets().size(), target.fullyQualifiedName());
+            }
+            GeneratedTestFile test = testGenerator.generate(target, request.llmProvider(), externalContext);
             llmAttempts++;
 
             if (request.dryRun()) {
@@ -139,7 +149,7 @@ public class TestGenerationService implements GenerateTestsUseCase {
                         GenerationStatus.WRITTEN, writtenPath, llmAttempts, null);
             }
 
-            return validateWithSelfCorrection(target, test, writtenPath, request, buildTool, llmAttempts);
+            return validateWithSelfCorrection(target, test, writtenPath, request, buildTool, llmAttempts, externalContext);
         } catch (AtfException e) {
             log.error("Failed to generate tests for {}: {}", target.fullyQualifiedName(), e.getMessage());
             return ClassGenerationResult.failed(target.fullyQualifiedName(), llmAttempts, e.getMessage());
@@ -161,7 +171,8 @@ public class TestGenerationService implements GenerateTestsUseCase {
                                                              Path writtenPath,
                                                              TestGenerationRequest request,
                                                              BuildTool buildTool,
-                                                             int llmAttempts) {
+                                                             int llmAttempts,
+                                                             ExternalTestContext externalContext) {
         ValidationResult result = validator.runTests(request.projectPath(), buildTool, test.fullyQualifiedName());
         int fixRounds = 0;
 
@@ -169,7 +180,7 @@ public class TestGenerationService implements GenerateTestsUseCase {
             fixRounds++;
             log.info("Validation failed for {} ({} failures) - self-correction round {}/{}",
                     test.fullyQualifiedName(), result.failures().size(), fixRounds, request.maxFixAttempts());
-            test = testGenerator.fix(target, test, result, request.llmProvider());
+            test = testGenerator.fix(target, test, result, request.llmProvider(), externalContext);
             llmAttempts++;
             writtenPath = testWriter.writeTest(target, test);
             result = validator.runTests(request.projectPath(), buildTool, test.fullyQualifiedName());

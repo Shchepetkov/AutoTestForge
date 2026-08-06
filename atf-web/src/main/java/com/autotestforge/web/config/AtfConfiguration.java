@@ -9,10 +9,13 @@ import com.autotestforge.ai.TestPromptBuilder;
 import com.autotestforge.core.port.in.GenerateTestsUseCase;
 import com.autotestforge.core.port.out.AiTestGeneratorPort;
 import com.autotestforge.core.port.out.BuildToolPort;
+import com.autotestforge.core.port.out.ExternalContextPort;
 import com.autotestforge.core.port.out.ProjectScannerPort;
 import com.autotestforge.core.port.out.TestValidatorPort;
 import com.autotestforge.core.port.out.TestWriterPort;
 import com.autotestforge.core.service.TestGenerationService;
+import com.autotestforge.mcp.McpContextSource;
+import com.autotestforge.mcp.McpExternalContextProvider;
 import com.autotestforge.scanner.JavaParserProjectScanner;
 import com.autotestforge.validator.AdaptiveTestExecutor;
 import com.autotestforge.validator.DockerTestExecutor;
@@ -26,6 +29,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /** Hexagonal wiring for the web application (mirrors the CLI wiring). */
@@ -89,11 +93,31 @@ public class AtfConfiguration {
     }
 
     @Bean
+    public ExternalContextPort externalContextPort(AtfProperties properties) {
+        AtfProperties.Context context = properties.context();
+        if (context == null || !context.enabled()) {
+            return ExternalContextPort.NO_OP;
+        }
+        List<McpContextSource> sources = context.sources().stream()
+                .map(this::toMcpSource)
+                .toList();
+        return new McpExternalContextProvider(sources);
+    }
+
+    private McpContextSource toMcpSource(AtfProperties.ContextSource source) {
+        return new McpContextSource(source.name(), source.enabled(), source.command(), source.args(),
+                source.toolName(), source.queryArgument(), source.queryTemplate(), source.arguments(),
+                source.timeout(), source.maxChars());
+    }
+
+    @Bean
     public GenerateTestsUseCase generateTestsUseCase(ProjectScannerPort scanner,
                                                      AiTestGeneratorPort aiTestGenerator,
                                                      TestWriterPort testWriter,
                                                      BuildToolPort buildToolPort,
-                                                     TestValidatorPort testValidator) {
-        return new TestGenerationService(scanner, aiTestGenerator, testWriter, buildToolPort, testValidator);
+                                                     TestValidatorPort testValidator,
+                                                     ExternalContextPort externalContextPort) {
+        return new TestGenerationService(scanner, aiTestGenerator, testWriter, buildToolPort,
+                testValidator, externalContextPort);
     }
 }

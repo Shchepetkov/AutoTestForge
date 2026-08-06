@@ -1,6 +1,8 @@
 package com.autotestforge.ai;
 
 import com.autotestforge.core.domain.ClassKind;
+import com.autotestforge.core.domain.ExternalContextSnippet;
+import com.autotestforge.core.domain.ExternalTestContext;
 import com.autotestforge.core.domain.FieldDependency;
 import com.autotestforge.core.domain.GeneratedTestFile;
 import com.autotestforge.core.domain.JavaClassInfo;
@@ -59,6 +61,26 @@ class TestPromptBuilderTest {
         String prompt = builder.buildGenerationPrompt(plain);
 
         assertThat(prompt).contains("no collaborators, do not use Mockito annotations");
+    }
+
+    @Test
+    @DisplayName("generation prompt includes external business and TMS context")
+    void buildGenerationPrompt_shouldIncludeExternalContext() {
+        ExternalTestContext context = new ExternalTestContext(List.of(
+                new ExternalContextSnippet("confluence", "Order business rules",
+                        "VIP customers receive expedited handling."),
+                new ExternalContextSnippet("zephyr", "Regression test ATF-T42",
+                        "Verify cancelled orders cannot be paid.")));
+
+        String prompt = builder.buildGenerationPrompt(serviceClass(), context);
+
+        assertThat(prompt)
+                .contains("External business and test-management context")
+                .contains("Source: confluence")
+                .contains("VIP customers receive expedited handling")
+                .contains("Source: zephyr")
+                .contains("Verify cancelled orders cannot be paid")
+                .contains("Use this context to choose meaningful business scenarios");
     }
 
     @Test

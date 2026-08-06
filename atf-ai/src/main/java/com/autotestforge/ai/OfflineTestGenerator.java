@@ -1,5 +1,6 @@
 package com.autotestforge.ai;
 
+import com.autotestforge.core.domain.ExternalTestContext;
 import com.autotestforge.core.domain.GeneratedTestFile;
 import com.autotestforge.core.domain.JavaClassInfo;
 import com.autotestforge.core.domain.MethodInfo;
@@ -19,7 +20,7 @@ import java.util.stream.Collectors;
 public class OfflineTestGenerator implements AiTestGeneratorPort {
 
     @Override
-    public GeneratedTestFile generate(JavaClassInfo classInfo, String provider) {
+    public GeneratedTestFile generate(JavaClassInfo classInfo, String provider, ExternalTestContext externalContext) {
         String testClassName = classInfo.className() + "Test";
         String source = """
                 package %s;
@@ -52,9 +53,10 @@ public class OfflineTestGenerator implements AiTestGeneratorPort {
 
     @Override
     public GeneratedTestFile fix(JavaClassInfo classInfo, GeneratedTestFile previousTest,
-                                 ValidationResult validationResult, String provider) {
+                                 ValidationResult validationResult, String provider,
+                                 ExternalTestContext externalContext) {
         // Deterministic output: regenerating is the only "fix" available offline.
-        return generate(classInfo, provider);
+        return generate(classInfo, provider, externalContext);
     }
 
     private String testMethods(JavaClassInfo classInfo) {

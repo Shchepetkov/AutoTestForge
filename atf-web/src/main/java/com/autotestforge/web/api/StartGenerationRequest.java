@@ -12,11 +12,17 @@ import java.util.List;
  * @param llm         optional provider override (ollama / openai / offline)
  * @param validate    run generated tests in isolation and self-correct
  * @param dryRun      generate without modifying the target project
+ * @param context     fetch business/TMS context from configured MCP sources
+ * @param contextSources optional MCP context source filter
+ * @param contextQuery optional MCP search query template override
  */
 public record StartGenerationRequest(
         @NotBlank(message = "projectPath is required") String projectPath,
         List<String> classes,
         String llm,
         boolean validate,
-        boolean dryRun) {
+        boolean dryRun,
+        boolean context,
+        List<String> contextSources,
+        String contextQuery) {
 }
