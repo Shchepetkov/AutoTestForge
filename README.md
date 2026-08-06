@@ -23,6 +23,7 @@ flowchart LR
     end
     subgraph driven [Выходные адаптеры]
         SCAN[atf-scanner<br>JavaParser + SymbolSolver]
+        MCP[atf-mcp<br>Confluence / Zephyr / другие MCP]
         AI[atf-ai<br>LangChain4j: Ollama / OpenAI]
         WRITE[atf-writer<br>тестовые файлы + обновление pom/gradle]
         VAL[atf-validator<br>Docker-песочница + разбор отчетов]
@@ -31,6 +32,7 @@ flowchart LR
     WEB --> UC
     UC --> PORTS
     PORTS --> SCAN
+    PORTS --> MCP
     PORTS --> AI
     PORTS --> WRITE
     PORTS --> VAL
@@ -40,10 +42,11 @@ flowchart LR
 Пайплайн для каждого подходящего класса:
 
 1. **Сканирование** — рекурсивно найти все корни `src/main/java` (с учетом multi-module-проектов), разобрать каждую единицу компиляции через JavaParser + SymbolSolver, извлечь публичный API, Javadoc, аннотации, зависимости класса и граф зависимостей внутри проекта.
-2. **Промпт** — собрать самодостаточный промпт: полный исходный код класса, сигнатуры методов с Javadoc, зависимости для мокирования, ограничения по стилю (Arrange-Act-Assert, именование `method_shouldX_whenY`, граничные случаи, сценарии ошибок).
-3. **Генерация** — вызвать настроенную LLM через LangChain4j; ответы повторяются с экспоненциальной задержкой и проверяются JavaParser (некомпилируемый результат отклоняется).
-4. **Запись** — поместить тест в `src/test/java/<package>/<Class>Test.java` соответствующего модуля и добавить недостающие тестовые зависимости в `pom.xml` / `build.gradle` / `build.gradle.kts`.
-5. **Валидация и самоисправление** *(опционально)* — запустить тест во временном Docker-контейнере (Testcontainers); при ошибке разобрать JUnit XML-отчет, отправить ошибки обратно в LLM и повторить до `max-fix-attempts` раз. Если Docker daemon недоступен, используется локальный запуск процесса.
+2. **Внешний контекст** *(опционально)* — запросить бизнес-правила, требования и TMS test cases из настроенных MCP-источников (например, Confluence и Zephyr) по имени класса, package, методам и пользовательскому query template.
+3. **Промпт** — собрать самодостаточный промпт: полный исходный код класса, сигнатуры методов с Javadoc, зависимости для мокирования, внешний бизнес/TMS-контекст, ограничения по стилю (Arrange-Act-Assert, именование `method_shouldX_whenY`, граничные случаи, сценарии ошибок).
+4. **Генерация** — вызвать настроенную LLM через LangChain4j; ответы повторяются с экспоненциальной задержкой и проверяются JavaParser (некомпилируемый результат отклоняется).
+5. **Запись** — поместить тест в `src/test/java/<package>/<Class>Test.java` соответствующего модуля и добавить недостающие тестовые зависимости в `pom.xml` / `build.gradle` / `build.gradle.kts`.
+6. **Валидация и самоисправление** *(опционально)* — запустить тест во временном Docker-контейнере (Testcontainers); при ошибке разобрать JUnit XML-отчет, отправить ошибки обратно в LLM и повторить до `max-fix-attempts` раз. Если Docker daemon недоступен, используется локальный запуск процесса.
 
 Ошибка в одном классе никогда не прерывает весь запуск — она записывается в итоговый отчет.
 
@@ -54,6 +57,7 @@ flowchart LR
 | `atf-core` | Доменная модель, порты и сервис оркестрации. Без зависимостей от фреймворков. |
 | `atf-scanner` | Адаптер `ProjectScannerPort` на базе JavaParser (AST + разрешение символов). |
 | `atf-ai` | Проектирование промптов, интеграция LangChain4j (Ollama, OpenAI), разбор ответов, резервный автономный генератор. |
+| `atf-mcp` | Подключение внешнего бизнес- и TMS-контекста через stdio MCP-серверы (например, Confluence, Zephyr). |
 | `atf-writer` | Запись тестовых файлов, `MavenPomUpdater` (Maven model API), `GradleBuildUpdater`. |
 | `atf-validator` | Исполнитель тестов в Docker (Testcontainers), резервный запуск в локальном процессе, парсер JUnit XML-отчетов. |
 | `atf-cli` | Интерфейс командной строки на Spring Boot + picocli. |
@@ -97,6 +101,9 @@ java -jar atf-cli/target/atf-cli-0.1.0.jar generate \
 | `--validate` | Запустить сгенерированные тесты в песочнице и самоисправить ошибки |
 | `--dry-run` | Сгенерировать без изменения целевого проекта |
 | `--max-fix-attempts` | Количество раундов самоисправления на класс (по умолчанию 2) |
+| `--with-external-context` | Перед генерацией искать бизнес/TMS-контекст через настроенные MCP-источники |
+| `--context-sources` | Ограничить источники контекста списком через запятую, например `confluence,zephyr` |
+| `--context-query` | Переопределить поисковый шаблон MCP на запуск (`${className}`, `${fullyQualifiedName}`, `${packageName}`, `${projectPath}`, `${methods}`) |
 
 ### Веб-интерфейс
 
@@ -106,6 +113,46 @@ java -jar atf-web/target/atf-web-0.1.0.jar
 ```
 
 `POST /api/generation` запускает асинхронную задачу, `GET /api/generation/{id}` транслирует ее прогресс; встроенный одностраничный интерфейс делает это за вас и показывает журнал событий в реальном времени и таблицу результатов.
+
+## Внешний контекст через MCP
+
+AutoTestForge может обогащать промпты бизнес-информацией и тестовыми артефактами из внешних систем через stdio MCP-серверы. Это позволяет подключить, например, MCP-сервер Confluence для требований и MCP-сервер Zephyr для тест-кейсов из TMS. Каждый источник настраивается как команда запуска MCP-сервера и tool, который принимает поисковый аргумент.
+
+```yaml
+atf:
+  context:
+    enabled: true
+    sources:
+      - name: confluence
+        enabled: true
+        command: npx
+        args: ["-y", "@your-org/confluence-mcp-server"]
+        tool-name: search
+        query-argument: query
+        query-template: "Find requirements and business rules for ${fullyQualifiedName}. Methods: ${methods}"
+        timeout: 30s
+        max-chars: 8000
+      - name: zephyr
+        enabled: true
+        command: npx
+        args: ["-y", "@your-org/zephyr-mcp-server"]
+        tool-name: search_tests
+        query-argument: query
+        query-template: "Find Zephyr test cases related to ${fullyQualifiedName}"
+        timeout: 30s
+        max-chars: 8000
+```
+
+После этого контекст можно включить для конкретного запуска:
+
+```bash
+java -jar atf-cli/target/atf-cli-0.1.0.jar generate \
+    --project-path examples/demo-project \
+    --with-external-context \
+    --context-sources confluence,zephyr
+```
+
+Если MCP-источник недоступен или возвращает ошибку, генерация не прерывается: источник пропускается, а тесты генерируются по доступному контексту.
 
 ## Конфигурация
 
@@ -124,6 +171,10 @@ java -jar atf-web/target/atf-web-0.1.0.jar
 | `atf.validation.prefer-docker` | `true` | Использовать Docker, когда он доступен; иначе локальный процесс |
 | `atf.validation.maven-image` | `maven:3.9-eclipse-temurin-17` | Образ песочницы для Maven-проектов |
 | `atf.validation.gradle-image` | `gradle:8.10-jdk17` | Образ песочницы для Gradle-проектов |
+| `atf.context.enabled` | `false` | Включить внешние MCP-источники контекста |
+| `atf.context.sources[].command` | — | Команда запуска stdio MCP-сервера |
+| `atf.context.sources[].tool-name` | — | MCP tool для поиска бизнес/TMS-информации |
+| `atf.context.sources[].query-template` | встроенный шаблон | Поисковый шаблон с плейсхолдерами класса |
 
 ## Архитектурные заметки
 
@@ -131,6 +182,7 @@ java -jar atf-web/target/atf-web-0.1.0.jar
 - **Выход LLM не считается надежным.** Ответы должны разбираться как корректный Java-код (проверяется JavaParser) до любых изменений целевого проекта; провайдеры находятся за слоем маршрутизации, поэтому переопределение `--llm` для отдельного запуска не требует перезапуска.
 - **Детерминированный резервный режим.** Провайдер `offline` генерирует smoke-тесты на основе reflection без модели — это полезно в CI и для сквозной проверки всего пайплайна.
 - **Изоляция.** Сгенерированные тесты запускаются во временном контейнере с проектом, подключенным через bind mount, и постоянным кэшем зависимостей; инструменты хоста не используются, если доступен Docker.
+- **Внешний контекст через порт.** Confluence, Zephyr и другие MCP/TMS-интеграции подключаются как адаптеры за `ExternalContextPort`; core получает только нормализованные фрагменты контекста и не зависит от конкретной внешней системы.
 - **Обработка ошибок.** Отдельная иерархия исключений (`ScanException`, `LlmException`, `TestWriteException`, `ValidationException`) сохраняет ошибки на уровне классов; структурированное MDC-логирование (`projectPath`, `className`) позволяет отслеживать запуски в `logs/autotestforge.log`.
 
 ## Планы развития

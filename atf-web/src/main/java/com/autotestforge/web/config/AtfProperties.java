@@ -4,10 +4,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.List;
+import java.util.Map;
 
 /** Same configuration surface as the CLI, bound for the web application. */
 @ConfigurationProperties(prefix = "atf")
-public record AtfProperties(Llm llm, Validation validation) {
+public record AtfProperties(Llm llm, Validation validation, Context context) {
 
     public record Llm(
             String provider,
@@ -35,5 +37,27 @@ public record AtfProperties(Llm llm, Validation validation) {
             String gradleImage,
             Duration timeout,
             Path cacheDir) {
+    }
+
+    public record Context(
+            boolean enabled,
+            List<ContextSource> sources) {
+
+        public Context {
+            sources = sources == null ? List.of() : List.copyOf(sources);
+        }
+    }
+
+    public record ContextSource(
+            String name,
+            boolean enabled,
+            String command,
+            List<String> args,
+            String toolName,
+            String queryArgument,
+            String queryTemplate,
+            Map<String, String> arguments,
+            Duration timeout,
+            int maxChars) {
     }
 }

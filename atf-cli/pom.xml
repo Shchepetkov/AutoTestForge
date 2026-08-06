@@ -29,6 +29,10 @@
         </dependency>
         <dependency>
             <groupId>com.autotestforge</groupId>
+            <artifactId>atf-mcp</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.autotestforge</groupId>
             <artifactId>atf-writer</artifactId>
         </dependency>
         <dependency>

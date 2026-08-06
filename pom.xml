@@ -31,6 +31,7 @@
         <module>atf-core</module>
         <module>atf-scanner</module>
         <module>atf-ai</module>
+        <module>atf-mcp</module>
         <module>atf-writer</module>
         <module>atf-validator</module>
         <module>atf-cli</module>
@@ -62,6 +63,11 @@
             <dependency>
                 <groupId>com.autotestforge</groupId>
                 <artifactId>atf-ai</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.autotestforge</groupId>
+                <artifactId>atf-mcp</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

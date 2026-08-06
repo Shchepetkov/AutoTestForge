@@ -2,6 +2,7 @@ package com.autotestforge.cli;
 
 import com.autotestforge.cli.config.AtfProperties;
 import com.autotestforge.core.domain.ClassGenerationResult;
+import com.autotestforge.core.domain.ExternalContextRequest;
 import com.autotestforge.core.domain.ProgressListener;
 import com.autotestforge.core.domain.TestGenerationReport;
 import com.autotestforge.core.domain.TestGenerationRequest;
@@ -53,6 +54,19 @@ public class GenerateCommand implements Callable<Integer> {
             description = "Self-correction rounds per class (default: from configuration).")
     private Integer maxFixAttempts;
 
+    @Option(names = "--with-external-context",
+            description = "Fetch business/TMS context from configured MCP sources before generation.")
+    private boolean withExternalContext;
+
+    @Option(names = "--context-sources", split = ",",
+            description = "Comma-separated MCP context source names to use (for example: confluence,zephyr).")
+    private List<String> contextSources = List.of();
+
+    @Option(names = "--context-query",
+            description = "Override MCP search query template. Supports ${className}, ${fullyQualifiedName}, "
+                    + "${packageName}, ${projectPath}, ${methods}.")
+    private String contextQuery;
+
     public GenerateCommand(GenerateTestsUseCase generateTestsUseCase, AtfProperties properties) {
         this.generateTestsUseCase = generateTestsUseCase;
         this.properties = properties;
@@ -67,6 +81,7 @@ public class GenerateCommand implements Callable<Integer> {
                     .validate(validate)
                     .dryRun(dryRun)
                     .maxFixAttempts(maxFixAttempts != null ? maxFixAttempts : properties.validation().maxFixAttempts())
+                    .externalContext(externalContextRequest())
                     .progressListener(new ConsoleProgressListener())
                     .build();
             TestGenerationReport report = generateTestsUseCase.generateTests(request);
@@ -76,6 +91,11 @@ public class GenerateCommand implements Callable<Integer> {
             System.err.println("ERROR: " + e.getMessage());
             return 2;
         }
+    }
+
+    private ExternalContextRequest externalContextRequest() {
+        boolean enabled = withExternalContext || contextQuery != null || !contextSources.isEmpty();
+        return new ExternalContextRequest(enabled, contextQuery, contextSources);
     }
 
     private void printReport(TestGenerationReport report) {

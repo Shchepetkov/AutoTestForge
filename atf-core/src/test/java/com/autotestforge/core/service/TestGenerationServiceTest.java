@@ -3,6 +3,8 @@ package com.autotestforge.core.service;
 import com.autotestforge.core.domain.BuildTool;
 import com.autotestforge.core.domain.ClassKind;
 import com.autotestforge.core.domain.DependencyGraph;
+import com.autotestforge.core.domain.ExternalContextSnippet;
+import com.autotestforge.core.domain.ExternalTestContext;
 import com.autotestforge.core.domain.GeneratedTestFile;
 import com.autotestforge.core.domain.GenerationStatus;
 import com.autotestforge.core.domain.JavaClassInfo;
@@ -15,6 +17,7 @@ import com.autotestforge.core.domain.ValidationResult;
 import com.autotestforge.core.exception.LlmException;
 import com.autotestforge.core.port.out.AiTestGeneratorPort;
 import com.autotestforge.core.port.out.BuildToolPort;
+import com.autotestforge.core.port.out.ExternalContextPort;
 import com.autotestforge.core.port.out.ProjectScannerPort;
 import com.autotestforge.core.port.out.TestValidatorPort;
 import com.autotestforge.core.port.out.TestWriterPort;
@@ -33,6 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -53,6 +57,8 @@ class TestGenerationServiceTest {
     private BuildToolPort buildToolPort;
     @Mock
     private TestValidatorPort validator;
+    @Mock
+    private ExternalContextPort externalContextPort;
 
     @InjectMocks
     private TestGenerationService service;
@@ -64,13 +70,14 @@ class TestGenerationServiceTest {
     @BeforeEach
     void detectMaven() {
         when(buildToolPort.detect(PROJECT)).thenReturn(BuildTool.MAVEN);
+        lenient().when(externalContextPort.fetchContext(any(), any())).thenReturn(ExternalTestContext.empty());
     }
 
     @Test
     @DisplayName("happy path without validation: test is generated and written")
     void generateTests_shouldWriteTest_whenValidationDisabled() {
         scannerReturns(orderService);
-        when(testGenerator.generate(eq(orderService), any())).thenReturn(orderServiceTest);
+        when(testGenerator.generate(eq(orderService), any(), any())).thenReturn(orderServiceTest);
         when(testWriter.writeTest(orderService, orderServiceTest)).thenReturn(Path.of("written/OrderServiceTest.java"));
 
         TestGenerationReport report = service.generateTests(request().build());
@@ -83,10 +90,26 @@ class TestGenerationServiceTest {
     }
 
     @Test
+    @DisplayName("external context is passed to the LLM generator")
+    void generateTests_shouldPassExternalContextToGenerator() {
+        scannerReturns(orderService);
+        ExternalTestContext context = new ExternalTestContext(List.of(
+                new ExternalContextSnippet("confluence", "Order rules", "VIP orders receive expedited handling")));
+        when(externalContextPort.fetchContext(eq(orderService), any())).thenReturn(context);
+        when(testGenerator.generate(eq(orderService), any(), eq(context))).thenReturn(orderServiceTest);
+        when(testWriter.writeTest(orderService, orderServiceTest)).thenReturn(Path.of("written/OrderServiceTest.java"));
+
+        TestGenerationReport report = service.generateTests(request().build());
+
+        assertThat(report.results()).hasSize(1);
+        verify(testGenerator).generate(orderService, null, context);
+    }
+
+    @Test
     @DisplayName("dry run: nothing is written and dependencies are untouched")
     void generateTests_shouldNotTouchProject_whenDryRun() {
         scannerReturns(orderService);
-        when(testGenerator.generate(eq(orderService), any())).thenReturn(orderServiceTest);
+        when(testGenerator.generate(eq(orderService), any(), any())).thenReturn(orderServiceTest);
 
         TestGenerationReport report = service.generateTests(request().dryRun(true).build());
 
@@ -99,7 +122,7 @@ class TestGenerationServiceTest {
     @DisplayName("validation passes on the first attempt")
     void generateTests_shouldReportValidated_whenTestsPassFirstTime() {
         scannerReturns(orderService);
-        when(testGenerator.generate(eq(orderService), any())).thenReturn(orderServiceTest);
+        when(testGenerator.generate(eq(orderService), any(), any())).thenReturn(orderServiceTest);
         when(testWriter.writeTest(orderService, orderServiceTest)).thenReturn(Path.of("written/OrderServiceTest.java"));
         when(validator.runTests(PROJECT, BuildTool.MAVEN, "com.acme.OrderServiceTest"))
                 .thenReturn(ValidationResult.success("BUILD SUCCESS"));
@@ -107,7 +130,7 @@ class TestGenerationServiceTest {
         TestGenerationReport report = service.generateTests(request().validate(true).build());
 
         assertThat(report.results().get(0).status()).isEqualTo(GenerationStatus.VALIDATED);
-        verify(testGenerator, never()).fix(any(), any(), any(), any());
+        verify(testGenerator, never()).fix(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -120,8 +143,8 @@ class TestGenerationServiceTest {
                 List.of(new TestFailure("com.acme.OrderServiceTest", "total_shouldFail", "boom", "trace")),
                 "BUILD FAILURE");
 
-        when(testGenerator.generate(eq(orderService), any())).thenReturn(orderServiceTest);
-        when(testGenerator.fix(eq(orderService), eq(orderServiceTest), eq(failure), any())).thenReturn(fixedTest);
+        when(testGenerator.generate(eq(orderService), any(), any())).thenReturn(orderServiceTest);
+        when(testGenerator.fix(eq(orderService), eq(orderServiceTest), eq(failure), any(), any())).thenReturn(fixedTest);
         when(testWriter.writeTest(eq(orderService), any())).thenReturn(Path.of("written/OrderServiceTest.java"));
         when(validator.runTests(PROJECT, BuildTool.MAVEN, "com.acme.OrderServiceTest"))
                 .thenReturn(failure)
@@ -142,8 +165,8 @@ class TestGenerationServiceTest {
                 List.of(new TestFailure("com.acme.OrderServiceTest", "total_shouldFail", "boom", "trace")),
                 "BUILD FAILURE");
 
-        when(testGenerator.generate(eq(orderService), any())).thenReturn(orderServiceTest);
-        when(testGenerator.fix(any(), any(), any(), any())).thenReturn(orderServiceTest);
+        when(testGenerator.generate(eq(orderService), any(), any())).thenReturn(orderServiceTest);
+        when(testGenerator.fix(any(), any(), any(), any(), any())).thenReturn(orderServiceTest);
         when(testWriter.writeTest(eq(orderService), any())).thenReturn(Path.of("written/OrderServiceTest.java"));
         when(validator.runTests(PROJECT, BuildTool.MAVEN, "com.acme.OrderServiceTest")).thenReturn(failure);
 
@@ -151,7 +174,7 @@ class TestGenerationServiceTest {
 
         assertThat(report.results().get(0).status()).isEqualTo(GenerationStatus.VALIDATION_FAILED);
         assertThat(report.failed()).isEqualTo(1);
-        verify(testGenerator, times(1)).fix(any(), any(), any(), any());
+        verify(testGenerator, times(1)).fix(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -159,8 +182,8 @@ class TestGenerationServiceTest {
     void generateTests_shouldContinueWithNextClass_whenOneClassFails() {
         JavaClassInfo broken = concreteClass("BrokenService");
         scannerReturns(broken, orderService);
-        when(testGenerator.generate(eq(broken), any())).thenThrow(new LlmException("model unreachable"));
-        when(testGenerator.generate(eq(orderService), any())).thenReturn(orderServiceTest);
+        when(testGenerator.generate(eq(broken), any(), any())).thenThrow(new LlmException("model unreachable"));
+        when(testGenerator.generate(eq(orderService), any(), any())).thenReturn(orderServiceTest);
         when(testWriter.writeTest(orderService, orderServiceTest)).thenReturn(Path.of("written/OrderServiceTest.java"));
 
         TestGenerationReport report = service.generateTests(request().build());
@@ -185,7 +208,7 @@ class TestGenerationServiceTest {
         TestGenerationReport report = service.generateTests(request().build());
 
         assertThat(report.results()).isEmpty();
-        verify(testGenerator, never()).generate(any(), any());
+        verify(testGenerator, never()).generate(any(), any(), any());
     }
 
     @Test
@@ -193,7 +216,7 @@ class TestGenerationServiceTest {
     void generateTests_shouldRespectClassFilter() {
         JavaClassInfo other = concreteClass("PriceCalculator");
         scannerReturns(orderService, other);
-        when(testGenerator.generate(eq(other), any()))
+        when(testGenerator.generate(eq(other), any(), any()))
                 .thenReturn(new GeneratedTestFile("com.acme", "PriceCalculatorTest", "class PriceCalculatorTest {}"));
         when(testWriter.writeTest(eq(other), any())).thenReturn(Path.of("written/PriceCalculatorTest.java"));
 

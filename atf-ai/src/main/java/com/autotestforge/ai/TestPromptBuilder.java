@@ -1,5 +1,7 @@
 package com.autotestforge.ai;
 
+import com.autotestforge.core.domain.ExternalContextSnippet;
+import com.autotestforge.core.domain.ExternalTestContext;
 import com.autotestforge.core.domain.FieldDependency;
 import com.autotestforge.core.domain.GeneratedTestFile;
 import com.autotestforge.core.domain.JavaClassInfo;
@@ -18,6 +20,7 @@ import java.util.stream.Collectors;
 public class TestPromptBuilder {
 
     private static final int MAX_LOG_CHARS = 6_000;
+    private static final int MAX_EXTERNAL_CONTEXT_CHARS = 12_000;
 
     private static final String GENERATION_TEMPLATE = """
             You are a senior Java test engineer. Write a complete, production-quality JUnit 5 test class \
@@ -37,6 +40,8 @@ public class TestPromptBuilder {
 
             ## Collaborators to mock with Mockito
             %{dependencyList}
+
+            %{externalContextSection}
 
             ## Hard requirements
             1. Use JUnit 5 (org.junit.jupiter), Mockito and AssertJ (assertThat) only.
@@ -74,6 +79,8 @@ public class TestPromptBuilder {
             ## Failures
             %{failures}
 
+            %{externalContextSection}
+
             ## Runner log (trimmed)
             ```
             %{log}
@@ -92,6 +99,10 @@ public class TestPromptBuilder {
             """;
 
     public String buildGenerationPrompt(JavaClassInfo classInfo) {
+        return buildGenerationPrompt(classInfo, ExternalTestContext.empty());
+    }
+
+    public String buildGenerationPrompt(JavaClassInfo classInfo, ExternalTestContext externalContext) {
         return GENERATION_TEMPLATE
                 .replace("%{packageName}", classInfo.packageName())
                 .replace("%{kind}", classInfo.kind().name().toLowerCase())
@@ -101,16 +112,23 @@ public class TestPromptBuilder {
                 .replace("%{sourceCode}", classInfo.sourceCode())
                 .replace("%{methodList}", methodList(classInfo))
                 .replace("%{dependencyList}", dependencyList(classInfo))
+                .replace("%{externalContextSection}", externalContextSection(externalContext))
                 .replace("%{testClassName}", testClassName(classInfo))
                 .replace("%{styleHint}", styleHint(classInfo));
     }
 
     public String buildFixPrompt(JavaClassInfo classInfo, GeneratedTestFile previousTest,
                                  ValidationResult validationResult) {
+        return buildFixPrompt(classInfo, previousTest, validationResult, ExternalTestContext.empty());
+    }
+
+    public String buildFixPrompt(JavaClassInfo classInfo, GeneratedTestFile previousTest,
+                                 ValidationResult validationResult, ExternalTestContext externalContext) {
         return FIX_TEMPLATE
                 .replace("%{sourceCode}", classInfo.sourceCode())
                 .replace("%{previousTest}", previousTest.sourceCode())
                 .replace("%{failures}", failureList(validationResult))
+                .replace("%{externalContextSection}", externalContextSection(externalContext))
                 .replace("%{log}", trimmedLog(validationResult))
                 .replace("%{packageName}", previousTest.packageName())
                 .replace("%{testClassName}", previousTest.className());
@@ -160,6 +178,35 @@ public class TestPromptBuilder {
                 + (dependency.injected() ? " (injected)" : "");
     }
 
+    private String externalContextSection(ExternalTestContext externalContext) {
+        if (externalContext == null || externalContext.isEmpty()) {
+            return """
+                    ## External business and test-management context
+                    (none configured or nothing found)
+                    """.stripTrailing();
+        }
+
+        String snippets = externalContext.snippets().stream()
+                .map(this::describeExternalContext)
+                .collect(Collectors.joining(System.lineSeparator() + System.lineSeparator()));
+        return """
+                ## External business and test-management context
+                Use this context to choose meaningful business scenarios, expected outcomes, edge cases and \
+                test names. Do not reference external IDs or systems from the Java code unless they are part \
+                of the class under test.
+                %s
+                """.formatted(trim(snippets, MAX_EXTERNAL_CONTEXT_CHARS)).stripTrailing();
+    }
+
+    private String describeExternalContext(ExternalContextSnippet snippet) {
+        return """
+                Source: %s
+                Title: %s
+                Content:
+                %s
+                """.formatted(snippet.source(), snippet.title(), snippet.content()).stripTrailing();
+    }
+
     /** Controllers get MockMvc guidance; everything else stays a plain unit test. */
     private String styleHint(JavaClassInfo classInfo) {
         String stereotype = classInfo.springStereotype();
@@ -181,8 +228,13 @@ public class TestPromptBuilder {
 
     private String trimmedLog(ValidationResult validationResult) {
         String log = validationResult.rawLog() == null ? "" : validationResult.rawLog();
-        return log.length() <= MAX_LOG_CHARS
-                ? log
-                : log.substring(log.length() - MAX_LOG_CHARS);
+        return trim(log, MAX_LOG_CHARS);
+    }
+
+    private String trim(String value, int maxChars) {
+        if (value.length() <= maxChars) {
+            return value;
+        }
+        return value.substring(value.length() - maxChars);
     }
 }

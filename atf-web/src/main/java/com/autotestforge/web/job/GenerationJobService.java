@@ -1,6 +1,7 @@
 package com.autotestforge.web.job;
 
 import com.autotestforge.core.domain.ClassGenerationResult;
+import com.autotestforge.core.domain.ExternalContextRequest;
 import com.autotestforge.core.domain.ProgressListener;
 import com.autotestforge.core.domain.TestGenerationReport;
 import com.autotestforge.core.domain.TestGenerationRequest;
@@ -69,6 +70,7 @@ public class GenerationJobService {
                     .validate(request.validate())
                     .dryRun(request.dryRun())
                     .maxFixAttempts(properties.validation().maxFixAttempts())
+                    .externalContext(externalContextRequest(request))
                     .progressListener(new JobProgressListener(job))
                     .build();
             TestGenerationReport report = generateTestsUseCase.generateTests(generationRequest);
@@ -77,6 +79,12 @@ public class GenerationJobService {
             log.error("Generation job {} failed", job.getId(), e);
             job.fail(e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
         }
+    }
+
+    private ExternalContextRequest externalContextRequest(StartGenerationRequest request) {
+        List<String> sources = request.contextSources() == null ? List.of() : request.contextSources();
+        boolean enabled = request.context() || request.contextQuery() != null || !sources.isEmpty();
+        return new ExternalContextRequest(enabled, request.contextQuery(), sources);
     }
 
     @PreDestroy

@@ -1,5 +1,6 @@
 package com.autotestforge.ai;
 
+import com.autotestforge.core.domain.ExternalTestContext;
 import com.autotestforge.core.domain.GeneratedTestFile;
 import com.autotestforge.core.domain.JavaClassInfo;
 import com.autotestforge.core.domain.ValidationResult;
@@ -37,16 +38,17 @@ public class LangChain4jTestGenerator implements AiTestGeneratorPort {
     }
 
     @Override
-    public GeneratedTestFile generate(JavaClassInfo classInfo, String provider) {
-        String prompt = promptBuilder.buildGenerationPrompt(classInfo);
+    public GeneratedTestFile generate(JavaClassInfo classInfo, String provider, ExternalTestContext externalContext) {
+        String prompt = promptBuilder.buildGenerationPrompt(classInfo, externalContext);
         log.debug("Generation prompt for {} ({} chars)", classInfo.fullyQualifiedName(), prompt.length());
         return responseParser.parse(chatWithRetry(prompt, classInfo.fullyQualifiedName()));
     }
 
     @Override
     public GeneratedTestFile fix(JavaClassInfo classInfo, GeneratedTestFile previousTest,
-                                 ValidationResult validationResult, String provider) {
-        String prompt = promptBuilder.buildFixPrompt(classInfo, previousTest, validationResult);
+                                 ValidationResult validationResult, String provider,
+                                 ExternalTestContext externalContext) {
+        String prompt = promptBuilder.buildFixPrompt(classInfo, previousTest, validationResult, externalContext);
         log.debug("Fix prompt for {} ({} chars)", previousTest.fullyQualifiedName(), prompt.length());
         return responseParser.parse(chatWithRetry(prompt, classInfo.fullyQualifiedName()));
     }
