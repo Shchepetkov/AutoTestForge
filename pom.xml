@@ -13,7 +13,7 @@
 
     <groupId>com.autotestforge</groupId>
     <artifactId>autotestforge</artifactId>
-    <version>0.1.0</version>
+    <version>0.2.0</version>
     <packaging>pom</packaging>
 
     <name>AutoTestForge</name>
@@ -34,6 +34,7 @@
         <module>atf-mcp</module>
         <module>atf-writer</module>
         <module>atf-validator</module>
+        <module>atf-spring</module>
         <module>atf-cli</module>
         <module>atf-web</module>
     </modules>
@@ -78,6 +79,11 @@
             <dependency>
                 <groupId>com.autotestforge</groupId>
                 <artifactId>atf-validator</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.autotestforge</groupId>
+                <artifactId>atf-spring</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -157,7 +163,42 @@
                         </excludes>
                     </configuration>
                 </plugin>
+                <plugin>
+                    <groupId>org.jacoco</groupId>
+                    <artifactId>jacoco-maven-plugin</artifactId>
+                    <version>${jacoco.version}</version>
+                </plugin>
             </plugins>
         </pluginManagement>
     </build>
+
+    <profiles>
+        <!-- mvn -Pcoverage verify: per-module reports in target/site/jacoco -->
+        <profile>
+            <id>coverage</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.jacoco</groupId>
+                        <artifactId>jacoco-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>prepare-agent</id>
+                                <goals>
+                                    <goal>prepare-agent</goal>
+                                </goals>
+                            </execution>
+                            <execution>
+                                <id>report</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>report</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

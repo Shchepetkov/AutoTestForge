@@ -5,34 +5,21 @@ spring:
   mvc:
     problemdetails:
       enabled: true
+  servlet:
+    multipart:
+      max-request-size: 50MB
 
+# All AutoTestForge knobs live under atf.* - see atf-defaults.properties in atf-spring
+# (or the README) for every key and its default. Override anything here, through
+# environment variables (ATF_LLM_PROVIDER=openai) or flags (--atf.llm.provider=openai).
 atf:
   llm:
     provider: ollama
-    temperature: 0.2
-    max-retries: 3
-    retry-backoff-millis: 2000
-    ollama:
-      base-url: http://localhost:11434
-      model: llama3.1
-      timeout: 5m
-    openai:
-      api-key: ${OPENAI_API_KEY:}
-      model: gpt-4o-mini
-      timeout: 3m
-  validation:
-    max-fix-attempts: 2
-    prefer-docker: true
-    maven-image: maven:3.9-eclipse-temurin-17
-    gradle-image: gradle:8.10-jdk17
-    timeout: 15m
-    cache-dir: ${user.home}/.autotestforge/cache
   context:
-    # Disabled by default. Enable and add stdio MCP servers to enrich prompts with
-    # business rules, requirements and TMS test cases.
+    # Static stdio MCP servers that enrich prompts with business rules, requirements
+    # and TMS test cases. Sources added in the web form work without this section.
     enabled: false
     sources:
-      # Example:
       # - name: confluence
       #   enabled: true
       #   command: npx
@@ -40,15 +27,6 @@ atf:
       #   tool-name: search
       #   query-argument: query
       #   query-template: "Find requirements and business rules for ${fullyQualifiedName}. Methods: ${methods}"
-      #   timeout: 30s
-      #   max-chars: 8000
-      # - name: zephyr
-      #   enabled: true
-      #   command: npx
-      #   args: ["-y", "@your-org/zephyr-mcp-server"]
-      #   tool-name: search_tests
-      #   query-argument: query
-      #   query-template: "Find Zephyr test cases related to ${fullyQualifiedName}"
       #   timeout: 30s
       #   max-chars: 8000
 

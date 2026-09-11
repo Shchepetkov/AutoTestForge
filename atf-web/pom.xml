@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.autotestforge</groupId>
         <artifactId>autotestforge</artifactId>
-        <version>0.1.0</version>
+        <version>0.2.0</version>
     </parent>
 
     <artifactId>atf-web</artifactId>
@@ -17,27 +17,7 @@
     <dependencies>
         <dependency>
             <groupId>com.autotestforge</groupId>
-            <artifactId>atf-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.autotestforge</groupId>
-            <artifactId>atf-scanner</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.autotestforge</groupId>
-            <artifactId>atf-ai</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.autotestforge</groupId>
-            <artifactId>atf-mcp</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.autotestforge</groupId>
-            <artifactId>atf-writer</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.autotestforge</groupId>
-            <artifactId>atf-validator</artifactId>
+            <artifactId>atf-spring</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

@@ -3,35 +3,17 @@ spring:
     web-application-type: none
     banner-mode: "off"
 
+# All AutoTestForge knobs live under atf.* - see atf-defaults.properties in atf-spring
+# (or the README) for every key and its default. Override anything here, through
+# environment variables (ATF_LLM_PROVIDER=openai) or flags (--atf.llm.provider=openai).
 atf:
   llm:
-    # Default provider: ollama (local, free). Override per run with --llm.
     provider: ollama
-    temperature: 0.2
-    max-retries: 3
-    retry-backoff-millis: 2000
-    ollama:
-      base-url: http://localhost:11434
-      model: llama3.1
-      timeout: 5m
-    openai:
-      # Only registered when the key is present.
-      api-key: ${OPENAI_API_KEY:}
-      model: gpt-4o-mini
-      timeout: 3m
-  validation:
-    max-fix-attempts: 2
-    prefer-docker: true
-    maven-image: maven:3.9-eclipse-temurin-17
-    gradle-image: gradle:8.10-jdk17
-    timeout: 15m
-    cache-dir: ${user.home}/.autotestforge/cache
   context:
-    # Disabled by default. Enable and add stdio MCP servers to enrich prompts with
-    # business rules, requirements and TMS test cases.
+    # Static stdio MCP servers that enrich prompts with business rules, requirements
+    # and TMS test cases. Enable and list your servers:
     enabled: false
     sources:
-      # Example:
       # - name: confluence
       #   enabled: true
       #   command: npx
