@@ -95,6 +95,7 @@ public class TestGenerationService implements GenerateTestsUseCase {
             log.info("Test generation finished: {}", report.summary());
             return report;
         } finally {
+            externalContextPort.onRunFinished(request);
             MDC.remove("projectPath");
         }
     }
