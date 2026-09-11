@@ -4,17 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AutoTestForge</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%232f81f7'/%3E%3Cstop offset='1' stop-color='%23a371f7'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='7' fill='url(%23g)'/%3E%3Cpath d='M9 17l4 4 10-10' fill='none' stroke='%23fff' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
   :root {
     --bg: #0d1117;
     --panel: #161b22;
+    --panel-2: #1c2129;
     --border: #30363d;
     --text: #e6edf3;
     --muted: #8b949e;
     --accent: #2f81f7;
+    --accent-2: #a371f7;
     --green: #3fb950;
     --red: #f85149;
     --yellow: #d29922;
+    --gray: #6e7681;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -23,17 +27,20 @@
     font-family: "Segoe UI", system-ui, sans-serif;
     min-height: 100vh;
     padding: 2rem 1rem;
+    line-height: 1.45;
   }
-  .container { max-width: 960px; margin: 0 auto; }
+  .container { max-width: 1100px; margin: 0 auto; }
   header { text-align: center; margin-bottom: 2rem; }
   header h1 {
     font-size: 2rem;
-    background: linear-gradient(90deg, #2f81f7, #a371f7);
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
+    display: inline-block;
   }
   header p { color: var(--muted); margin-top: .4rem; }
+  header .version { font-size: .75rem; color: var(--muted); margin-left: .5rem; vertical-align: super; }
   .card {
     background: var(--panel);
     border: 1px solid var(--border);
@@ -41,163 +48,368 @@
     padding: 1.5rem;
     margin-bottom: 1.5rem;
   }
+  .card h3 { display: flex; align-items: center; gap: .6rem; margin-bottom: .6rem; }
+  .step {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.6rem; height: 1.6rem; border-radius: 50%;
+    background: var(--accent); color: #fff; font-size: .85rem; font-weight: 600;
+  }
   label { display: block; font-size: .85rem; color: var(--muted); margin: .8rem 0 .3rem; }
-  input[type=text], select, textarea {
+  input[type=text], input[type=number], select, textarea {
     width: 100%;
     padding: .55rem .7rem;
-    background: #0d1117;
+    background: var(--bg);
     color: var(--text);
     border: 1px solid var(--border);
     border-radius: 8px;
     font-size: .95rem;
+    font-family: inherit;
   }
-  input[type=text]:focus, select:focus, textarea:focus { outline: 1px solid var(--accent); }
+  input:focus, select:focus, textarea:focus { outline: 1px solid var(--accent); }
   textarea { min-height: 70px; resize: vertical; }
   .row { display: flex; gap: 1rem; flex-wrap: wrap; }
   .row > div { flex: 1; min-width: 200px; }
-  .checks { display: flex; gap: 1.5rem; margin-top: 1rem; align-items: center; }
-  .checks label { display: flex; align-items: center; gap: .4rem; margin: 0; cursor: pointer; }
-  .hint { color: var(--muted); font-size: .86rem; margin-top: .4rem; line-height: 1.45; }
+  .row > div.narrow { flex: 0 0 160px; min-width: 140px; }
+  .checks { display: flex; gap: 1.5rem; margin-top: 1rem; align-items: center; flex-wrap: wrap; }
+  .checks label { display: flex; align-items: center; gap: .4rem; margin: 0; cursor: pointer; color: var(--text); }
+  .hint { color: var(--muted); font-size: .86rem; margin-top: .4rem; }
+  .actions { display: flex; gap: .6rem; margin-top: 1.2rem; flex-wrap: wrap; align-items: center; }
+  button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: .65rem 1.4rem;
+    font-size: .95rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  button.secondary { background: var(--border); }
+  button.danger { background: var(--red); }
+  button.small { padding: .35rem .7rem; font-size: .8rem; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  a.button {
+    display: inline-block; background: var(--border); color: var(--text); text-decoration: none;
+    padding: .45rem .9rem; border-radius: 8px; font-size: .85rem;
+  }
+  details { margin-top: .6rem; }
+  summary { cursor: pointer; color: var(--muted); font-size: .9rem; user-select: none; }
+  summary:hover { color: var(--text); }
   .mcp-source {
     border: 1px solid var(--border);
     border-radius: 10px;
     padding: 1rem;
     margin-top: .9rem;
-    background: #0d1117;
+    background: var(--bg);
   }
   .mcp-source h4 { display: flex; justify-content: space-between; align-items: center; margin-bottom: .4rem; }
   .mcp-source h4 span { color: var(--muted); font-size: .9rem; font-weight: 500; }
-  button {
-    margin-top: 1.2rem;
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    padding: .65rem 1.6rem;
-    font-size: 1rem;
-    border-radius: 8px;
-    cursor: pointer;
+  .badge {
+    display: inline-block; padding: .1rem .55rem; border-radius: 999px; font-size: .75rem; font-weight: 600;
+    border: 1px solid currentColor;
   }
-  button.secondary { background: #30363d; margin-right: .6rem; }
-  button.danger { background: var(--red); padding: .35rem .7rem; font-size: .8rem; margin-top: 0; }
-  button:disabled { opacity: .5; cursor: wait; }
   .status-RUNNING { color: var(--yellow); }
-  .status-COMPLETED { color: var(--green); }
-  .status-FAILED { color: var(--red); }
-  #events {
-    font-family: Consolas, monospace;
+  .status-COMPLETED, .ok { color: var(--green); }
+  .status-FAILED, .bad { color: var(--red); }
+  .status-CANCELLED, .neutral { color: var(--gray); }
+  .progress { height: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 999px; overflow: hidden; margin-top: .8rem; }
+  .progress > div { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); width: 0; transition: width .4s; }
+  #events, pre.code {
+    font-family: Consolas, "JetBrains Mono", monospace;
     font-size: .82rem;
     color: var(--muted);
     max-height: 220px;
-    overflow-y: auto;
-    background: #0d1117;
+    overflow: auto;
+    background: var(--bg);
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: .8rem;
     margin-top: 1rem;
     white-space: pre-wrap;
   }
+  pre.code { color: var(--text); max-height: 420px; margin-top: .4rem; }
   table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: .85rem; }
-  th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--border); }
+  th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--border); vertical-align: top; }
   th { color: var(--muted); font-weight: 600; }
-  td.mono { font-family: Consolas, monospace; font-size: .8rem; }
-  .ok { color: var(--green); }
-  .bad { color: var(--red); }
+  td.mono, .mono { font-family: Consolas, "JetBrains Mono", monospace; font-size: .8rem; }
+  tr.ineligible td { color: var(--muted); }
   .hidden { display: none; }
   .summary { margin-top: 1rem; color: var(--muted); }
   input[type=file] { margin-top: .35rem; color: var(--muted); }
+  .toolbar { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; margin-top: .8rem; }
+  .toolbar .spacer { flex: 1; }
+  .history li { list-style: none; padding: .45rem 0; border-bottom: 1px solid var(--border); display: flex; gap: .8rem; align-items: center; font-size: .85rem; }
+  .history li a { color: var(--accent); cursor: pointer; text-decoration: none; }
+  .toast {
+    position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--panel-2); border: 1px solid var(--border);
+    border-left: 4px solid var(--red); padding: .8rem 1rem; border-radius: 8px; max-width: 420px; font-size: .9rem;
+    box-shadow: 0 8px 24px rgba(0,0,0,.4);
+  }
+  .toast.info { border-left-color: var(--accent); }
 </style>
 </head>
 <body>
 <div class="container">
   <header>
-    <h1>AutoTestForge</h1>
+    <h1>AutoTestForge</h1><span class="version" id="version"></span>
     <p>Генератор модульных и интеграционных тестов для Java-проектов на базе ИИ</p>
   </header>
 
+  <!-- Step 1: project and options -->
   <div class="card">
+    <h3><span class="step">1</span> Проект и параметры генерации</h3>
     <label for="projectPath">Путь к проекту на этой машине</label>
     <input type="text" id="projectPath" placeholder="C:\projects\my-service или /home/me/my-service">
     <div class="row">
       <div>
-        <label for="classes">Фильтр классов (опционально, через запятую)</label>
-        <input type="text" id="classes" placeholder="OrderService, com.acme.PriceCalculator">
+        <label for="classes">Фильтр классов (опционально, через запятую, поддерживаются * и ?)</label>
+        <input type="text" id="classes" placeholder="OrderService, com.acme.service.*, *Calculator">
       </div>
       <div>
+        <label for="excludes">Исключить классы (опционально)</label>
+        <input type="text" id="excludes" placeholder="*Config, com.acme.legacy.*">
+      </div>
+    </div>
+    <div class="row">
+      <div>
         <label for="llm">LLM-провайдер</label>
-        <select id="llm">
-          <option value="">по умолчанию из конфигурации</option>
-          <option value="ollama">ollama (локально)</option>
-          <option value="openai">openai</option>
-          <option value="offline">offline (без LLM)</option>
-        </select>
+        <select id="llm"><option value="">по умолчанию из конфигурации</option></select>
+      </div>
+      <div class="narrow">
+        <label for="parallelism">Параллелизм (1-16)</label>
+        <input type="number" id="parallelism" min="1" max="16" placeholder="1">
+      </div>
+      <div class="narrow">
+        <label for="maxFixAttempts">Раундов самоисправления</label>
+        <input type="number" id="maxFixAttempts" min="0" max="10" placeholder="2">
+      </div>
+      <div>
+        <label for="outputDir">Каталог вывода вместо проекта (опционально)</label>
+        <input type="text" id="outputDir" placeholder="/tmp/generated-tests">
       </div>
     </div>
     <div class="checks">
       <label><input type="checkbox" id="validate"> Валидировать в песочнице и самоисправлять</label>
       <label><input type="checkbox" id="dryRun"> Пробный запуск без записи файлов</label>
-      <label><input type="checkbox" id="context"> Использовать внешний контекст</label>
+      <label><input type="checkbox" id="overwrite"> Перезаписывать существующие тесты</label>
+    </div>
+    <div class="actions">
+      <button class="secondary" id="scanBtn" onclick="scan()">Сканировать проект</button>
+      <span class="hint" id="scanHint">Сканирование покажет, какие классы будут обработаны, без вызова LLM.</span>
     </div>
   </div>
 
+  <!-- Step 2: scan results -->
+  <div class="card hidden" id="scanCard">
+    <h3><span class="step">2</span> Классы для генерации <span class="badge neutral" id="scanBadge"></span></h3>
+    <p class="hint" id="scanSummary"></p>
+    <div class="toolbar">
+      <button class="small secondary" onclick="selectAll(true)">Выбрать все подходящие</button>
+      <button class="small secondary" onclick="selectAll(false)">Снять выбор</button>
+      <label style="margin:0; display:flex; align-items:center; gap:.4rem;"><input type="checkbox" id="showIneligible" onchange="renderScan()"> показать неподходящие</label>
+      <span class="spacer"></span>
+      <span class="hint" id="selectionHint"></span>
+    </div>
+    <table>
+      <thead>
+      <tr><th></th><th>Класс</th><th>Тип</th><th>Методы</th><th>Моки</th><th>Заметки</th></tr>
+      </thead>
+      <tbody id="scanRows"></tbody>
+    </table>
+  </div>
+
+  <!-- Step 3: external context -->
   <div class="card">
-    <h3>Внешний контекст для LLM</h3>
+    <h3><span class="step">3</span> Внешний контекст для LLM <span class="hint">(опционально)</span></h3>
     <p class="hint">
-      Можно добавить несколько MCP-источников (например, отдельные серверы Confluence, Jira, Zephyr)
-      и/или загрузить XML/JSON/TXT экспорт из Zephyr/TMS. Этот контекст попадет в prompt, а LLM
-      должна использовать его для сценариев и добавить в тест JavaDoc-заметку о покрытии и пробелах.
+      MCP-источники (Confluence, Jira, Zephyr и др.) и/или XML/JSON/TXT экспорт из TMS попадут в prompt.
+      LLM использует их для бизнес-сценариев и добавит в тест JavaDoc-раздел «Business/TMS coverage».
     </p>
+    <div class="checks">
+      <label><input type="checkbox" id="context"> Использовать источники из application.yml <span class="hint" id="configuredSources"></span></label>
+    </div>
     <div class="row">
       <div>
-        <label for="contextSources">Источники из application.yml (опционально, через запятую)</label>
-        <input type="text" id="contextSources" placeholder="confluence, jira">
+        <label for="contextSources">Ограничить источники из конфигурации (через запятую)</label>
+        <input type="text" id="contextSources" placeholder="confluence, zephyr">
       </div>
       <div>
-        <label for="contextQuery">Общий шаблон поискового запроса MCP (опционально)</label>
+        <label for="contextQuery">Общий шаблон поискового запроса MCP</label>
         <textarea id="contextQuery" placeholder="Find requirements and TMS tests for ${fullyQualifiedName}. Methods: ${methods}"></textarea>
       </div>
     </div>
-    <div id="mcpSources"></div>
-    <button class="secondary" onclick="addMcpSource()">+ Добавить MCP источник</button>
-
+    <details id="mcpDetails">
+      <summary>MCP-источники для этого запуска</summary>
+      <div id="mcpSources"></div>
+      <button class="secondary small" style="margin-top:.8rem" onclick="addMcpSource()">+ Добавить MCP источник</button>
+    </details>
     <label for="contextFiles">Файлы контекста, например XML из Zephyr/TMS</label>
-    <input type="file" id="contextFiles" multiple accept=".xml,.json,.txt,.md">
-    <p class="hint">Файлы читаются браузером и отправляются как текстовый контекст; на сервере они не сохраняются как отдельные файлы.</p>
-
-    <button id="startBtn" onclick="start()">Сгенерировать тесты</button>
+    <input type="file" id="contextFiles" multiple accept=".xml,.json,.txt,.md,.csv">
+    <p class="hint">Файлы читаются браузером и отправляются как текстовый контекст; на сервере они не сохраняются.</p>
   </div>
 
+  <div class="actions" style="margin-bottom:1.5rem">
+    <button id="startBtn" onclick="start()">Сгенерировать тесты</button>
+    <span class="hint" id="startHint"></span>
+  </div>
+
+  <!-- Job -->
   <div class="card hidden" id="jobCard">
-    <h3>Задача <span id="jobState" class="status-RUNNING">RUNNING</span></h3>
+    <h3>Задача <span id="jobState" class="badge status-RUNNING">RUNNING</span>
+      <span class="hint mono" id="jobId"></span>
+      <span class="spacer" style="flex:1"></span>
+      <button class="danger small" id="cancelBtn" onclick="cancelJob()">Отменить</button>
+    </h3>
+    <div class="progress"><div id="progressBar"></div></div>
+    <p class="hint" id="progressText"></p>
     <div id="events"></div>
     <div id="resultBlock" class="hidden">
       <table>
         <thead>
-        <tr><th>Класс</th><th>Статус</th><th>LLM-вызовы</th><th>Детали</th></tr>
+        <tr><th>Класс</th><th>Статус</th><th>LLM</th><th>Детали</th></tr>
         </thead>
         <tbody id="resultRows"></tbody>
       </table>
       <p class="summary" id="summary"></p>
+      <div class="toolbar" id="reportLinks"></div>
     </div>
+  </div>
+
+  <!-- History -->
+  <div class="card hidden" id="historyCard">
+    <h3>Недавние задачи</h3>
+    <ul class="history" id="historyList"></ul>
   </div>
 </div>
 
 <script>
   let pollTimer = null;
   let mcpSourceCounter = 0;
+  let currentJobId = null;
+  let scanData = null;
+  const selected = new Set();
 
+  // ---------------------------------------------------------------- boot
+  (async function init() {
+    try {
+      const caps = await (await fetch('/api/capabilities')).json();
+      document.getElementById('version').textContent = 'v' + caps.version;
+      const llm = document.getElementById('llm');
+      for (const provider of caps.providers) {
+        const option = document.createElement('option');
+        option.value = provider;
+        option.textContent = provider + (provider === caps.defaultProvider ? ' (по умолчанию)' : '');
+        llm.appendChild(option);
+      }
+      document.getElementById('parallelism').placeholder = caps.defaultParallelism;
+      document.getElementById('maxFixAttempts').placeholder = caps.defaultMaxFixAttempts;
+      document.getElementById('overwrite').checked = caps.defaultOverwrite;
+      document.getElementById('configuredSources').textContent = caps.configuredContextSources.length
+        ? '(' + caps.configuredContextSources.join(', ') + ')' : '(в конфигурации нет источников)';
+    } catch (e) {
+      toast('Не удалось загрузить настройки сервера: ' + e);
+    }
+    refreshHistory();
+  })();
+
+  // ---------------------------------------------------------------- scan
+  async function scan() {
+    const btn = document.getElementById('scanBtn');
+    btn.disabled = true;
+    try {
+      const response = await fetch('/api/scan', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          projectPath: document.getElementById('projectPath').value.trim(),
+          classes: splitList(document.getElementById('classes').value),
+          excludes: splitList(document.getElementById('excludes').value)
+        })
+      });
+      if (!response.ok) {
+        toast('Сканирование не удалось: ' + await problemText(response));
+        return;
+      }
+      scanData = await response.json();
+      selected.clear();
+      const overwrite = document.getElementById('overwrite').checked;
+      for (const entry of scanData.classes) {
+        if (entry.eligible && (overwrite || !entry.existingTest)) selected.add(entry.classFqn);
+      }
+      document.getElementById('scanCard').classList.remove('hidden');
+      document.getElementById('scanSummary').textContent =
+        `${scanData.projectPath} — сборка: ${scanData.buildTool || 'не определена'}; найдено типов: ${scanData.discovered}, ` +
+        `подходят: ${scanData.eligible}, уже имеют тест: ${scanData.withExistingTests}.`;
+      renderScan();
+    } catch (e) {
+      toast('Ошибка запроса: ' + e);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function renderScan() {
+    if (!scanData) return;
+    const showIneligible = document.getElementById('showIneligible').checked;
+    const rows = document.getElementById('scanRows');
+    rows.innerHTML = '';
+    for (const entry of scanData.classes) {
+      if (!entry.eligible && !showIneligible) continue;
+      const tr = document.createElement('tr');
+      if (!entry.eligible) tr.className = 'ineligible';
+      const checkbox = entry.eligible
+        ? `<input type="checkbox" ${selected.has(entry.classFqn) ? 'checked' : ''} onchange="toggle('${escapeAttribute(entry.classFqn)}', this.checked)">`
+        : '';
+      const notes = entry.eligible
+        ? [entry.springStereotype ? '@' + entry.springStereotype : '', entry.existingTest ? 'уже есть тест' : ''].filter(Boolean).join(' · ')
+        : 'пропуск: ' + entry.skipReason;
+      tr.innerHTML =
+        '<td>' + checkbox + '</td>' +
+        '<td class="mono" title="' + escapeAttribute(entry.sourceFile || '') + '">' + escapeHtml(entry.classFqn) + '</td>' +
+        '<td>' + entry.kind.toLowerCase() + '</td>' +
+        '<td title="' + escapeAttribute(entry.publicMethods.join(', ')) + '">' + entry.publicMethods.length + '</td>' +
+        '<td title="' + escapeAttribute(entry.collaborators.join(', ')) + '">' + entry.collaborators.length + '</td>' +
+        '<td>' + escapeHtml(notes) + '</td>';
+      rows.appendChild(tr);
+    }
+    document.getElementById('scanBadge').textContent = selected.size + ' выбрано';
+    document.getElementById('selectionHint').textContent = selected.size
+      ? 'В запуск попадут только выбранные классы.'
+      : 'Ничего не выбрано — будут обработаны все подходящие классы по фильтрам выше.';
+  }
+
+  function toggle(fqn, checked) {
+    if (checked) selected.add(fqn); else selected.delete(fqn);
+    renderScan();
+  }
+
+  function selectAll(value) {
+    if (!scanData) return;
+    selected.clear();
+    if (value) scanData.classes.filter(e => e.eligible).forEach(e => selected.add(e.classFqn));
+    renderScan();
+  }
+
+  // ---------------------------------------------------------------- start
   async function start() {
     const btn = document.getElementById('startBtn');
     btn.disabled = true;
     const mcpSources = collectMcpSources();
     const contextFiles = await readContextFiles();
+    const classes = selected.size ? [...selected] : splitList(document.getElementById('classes').value);
     const body = {
       projectPath: document.getElementById('projectPath').value.trim(),
-      classes: document.getElementById('classes').value.split(',').map(s => s.trim()).filter(Boolean),
+      classes,
+      excludes: splitList(document.getElementById('excludes').value),
       llm: document.getElementById('llm').value || null,
       validate: document.getElementById('validate').checked,
       dryRun: document.getElementById('dryRun').checked,
+      overwrite: document.getElementById('overwrite').checked,
+      parallelism: numberOrNull('parallelism'),
+      maxFixAttempts: numberOrNull('maxFixAttempts'),
+      outputDir: document.getElementById('outputDir').value.trim() || null,
       context: document.getElementById('context').checked,
-      contextSources: document.getElementById('contextSources').value.split(',').map(s => s.trim()).filter(Boolean),
+      contextSources: splitList(document.getElementById('contextSources').value),
       contextQuery: document.getElementById('contextQuery').value.trim() || null,
       mcpSources,
       contextFiles
@@ -209,21 +421,35 @@
         body: JSON.stringify(body)
       });
       if (!response.ok) {
-        const problem = await response.json().catch(() => ({}));
-        alert('Не удалось запустить: ' + (problem.detail || response.status));
+        toast('Не удалось запустить: ' + await problemText(response));
         btn.disabled = false;
         return;
       }
       const job = await response.json();
-      document.getElementById('jobCard').classList.remove('hidden');
-      document.getElementById('resultBlock').classList.add('hidden');
-      poll(job.id);
+      showJob(job.id);
     } catch (e) {
-      alert('Ошибка запроса: ' + e);
+      toast('Ошибка запроса: ' + e);
       btn.disabled = false;
     }
   }
 
+  function showJob(id) {
+    currentJobId = id;
+    document.getElementById('jobCard').classList.remove('hidden');
+    document.getElementById('resultBlock').classList.add('hidden');
+    document.getElementById('jobId').textContent = id;
+    document.getElementById('jobCard').scrollIntoView({behavior: 'smooth', block: 'start'});
+    poll(id);
+  }
+
+  async function cancelJob() {
+    if (!currentJobId) return;
+    const response = await fetch('/api/generation/' + currentJobId, {method: 'DELETE'});
+    if (!response.ok) toast('Не удалось отменить: ' + await problemText(response));
+    else toast('Отмена запрошена: текущий класс завершится, остальные не начнутся.', 'info');
+  }
+
+  // ---------------------------------------------------------------- MCP form
   function addMcpSource(initial = {}) {
     const id = ++mcpSourceCounter;
     const source = document.createElement('div');
@@ -232,7 +458,10 @@
     source.innerHTML = `
       <h4>
         <span>MCP источник #${id}</span>
-        <button class="danger" onclick="removeMcpSource(${id})">Удалить</button>
+        <span>
+          <button class="secondary small" onclick="probeMcp(${id})">Проверить tools</button>
+          <button class="danger small" onclick="removeMcpSource(${id})">Удалить</button>
+        </span>
       </h4>
       <div class="checks">
         <label><input type="checkbox" class="mcp-enabled" checked> Включен</label>
@@ -262,19 +491,52 @@
           <label>Аргумент запроса</label>
           <input type="text" class="mcp-query-argument" placeholder="query" value="${escapeAttribute(initial.queryArgument || 'query')}">
         </div>
-        <div>
+        <div class="narrow">
+          <label>Таймаут, с</label>
+          <input type="number" class="mcp-timeout" min="1" placeholder="30" value="${escapeAttribute(initial.timeoutSeconds || '')}">
+        </div>
+        <div class="narrow">
           <label>Лимит символов</label>
-          <input type="text" class="mcp-max-chars" placeholder="8000" value="${escapeAttribute(initial.maxChars || '8000')}">
+          <input type="number" class="mcp-max-chars" placeholder="8000" value="${escapeAttribute(initial.maxChars || '8000')}">
         </div>
       </div>
       <label>Query template для этого источника</label>
       <textarea class="mcp-query-template" placeholder="Find requirements for ${'${fullyQualifiedName}'}. Methods: ${'${methods}'}">${escapeHtml(initial.queryTemplate || '')}</textarea>
+      <p class="hint mcp-probe-result"></p>
     `;
     document.getElementById('mcpSources').appendChild(source);
+    document.getElementById('mcpDetails').open = true;
   }
 
   function removeMcpSource(id) {
     document.querySelector(`[data-source-id="${id}"]`)?.remove();
+  }
+
+  async function probeMcp(id) {
+    const source = document.querySelector(`[data-source-id="${id}"]`);
+    const result = source.querySelector('.mcp-probe-result');
+    result.textContent = 'Запускаю MCP сервер...';
+    try {
+      const response = await fetch('/api/mcp/tools', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          command: value(source, '.mcp-command'),
+          args: splitArgs(value(source, '.mcp-args')),
+          timeoutSeconds: Number.parseInt(value(source, '.mcp-timeout') || '30', 10)
+        })
+      });
+      const data = await response.json();
+      if (!response.ok || data.error) {
+        result.textContent = 'Ошибка: ' + (data.error || data.detail || response.status);
+        return;
+      }
+      result.textContent = `${data.serverInfo} (MCP ${data.protocolVersion}) — tools: ` +
+        data.tools.map(t => t.name + (t.arguments.length ? '(' + t.arguments.join(', ') + ')' : '')).join(', ');
+      if (data.tools.length && !value(source, '.mcp-tool')) source.querySelector('.mcp-tool').value = data.tools[0].name;
+    } catch (e) {
+      result.textContent = 'Ошибка запроса: ' + e;
+    }
   }
 
   function collectMcpSources() {
@@ -287,17 +549,10 @@
         toolName: value(source, '.mcp-tool'),
         queryArgument: value(source, '.mcp-query-argument') || 'query',
         queryTemplate: value(source, '.mcp-query-template'),
+        timeoutSeconds: Number.parseInt(value(source, '.mcp-timeout') || '0', 10) || null,
         maxChars: Number.parseInt(value(source, '.mcp-max-chars') || '8000', 10)
       }))
       .filter(source => source.enabled && source.name && source.command && source.toolName);
-  }
-
-  function value(root, selector) {
-    return root.querySelector(selector).value.trim();
-  }
-
-  function splitArgs(args) {
-    return args ? args.split(/\s+/).filter(Boolean) : [];
   }
 
   async function readContextFiles() {
@@ -309,9 +564,10 @@
     }))));
   }
 
+  // ---------------------------------------------------------------- polling & rendering
   function poll(id) {
     clearInterval(pollTimer);
-    pollTimer = setInterval(async () => {
+    const tick = async () => {
       const response = await fetch('/api/generation/' + id);
       if (!response.ok) return;
       const job = await response.json();
@@ -319,14 +575,24 @@
       if (job.state !== 'RUNNING') {
         clearInterval(pollTimer);
         document.getElementById('startBtn').disabled = false;
+        refreshHistory();
       }
-    }, 1500);
+    };
+    tick();
+    pollTimer = setInterval(tick, 1500);
   }
 
   function render(job) {
     const state = document.getElementById('jobState');
     state.textContent = statusText(job.state);
-    state.className = 'status-' + job.state;
+    state.className = 'badge status-' + job.state;
+    document.getElementById('cancelBtn').classList.toggle('hidden', job.state !== 'RUNNING' || job.cancelRequested);
+
+    const total = job.totalClasses || 0;
+    const done = job.processedClasses || 0;
+    document.getElementById('progressBar').style.width = total ? Math.round(done / total * 100) + '%' : (job.state === 'RUNNING' ? '5%' : '100%');
+    document.getElementById('progressText').textContent = total
+      ? `${done} из ${total} классов обработано` : (job.state === 'RUNNING' ? 'Сканирование проекта...' : '');
 
     const events = document.getElementById('events');
     events.textContent = job.events.join('\n') + (job.error ? '\nОШИБКА: ' + job.error : '');
@@ -337,43 +603,90 @@
       const rows = document.getElementById('resultRows');
       rows.innerHTML = '';
       for (const r of job.results) {
-        const ok = !['FAILED', 'VALIDATION_FAILED'].includes(r.status);
+        const cls = r.status === 'SKIPPED' ? 'neutral' : (r.success ? 'ok' : 'bad');
         const tr = document.createElement('tr');
+        const details = r.errorMessage || (r.status === 'SKIPPED' ? 'существующий тест сохранён: ' + r.writtenPath : (r.writtenPath || '—'));
+        const source = r.testSource
+          ? `<details><summary>показать код ${escapeHtml(r.testClassFqn || '')}</summary><pre class="code">${escapeHtml(r.testSource)}</pre></details>`
+          : '';
         tr.innerHTML =
           '<td class="mono">' + escapeHtml(r.classFqn) + '</td>' +
-          '<td class="' + (ok ? 'ok' : 'bad') + '">' + statusText(r.status) + '</td>' +
+          '<td class="' + cls + '">' + statusText(r.status) + '</td>' +
           '<td>' + r.llmAttempts + '</td>' +
-          '<td class="mono">' + escapeHtml(r.errorMessage || r.writtenPath || '-') + '</td>';
+          '<td class="mono">' + escapeHtml(details) + source + '</td>';
         rows.appendChild(tr);
       }
-      document.getElementById('summary').textContent = job.summary || '';
+      document.getElementById('summary').textContent = job.summary ? job.summary.text : '';
+      const links = document.getElementById('reportLinks');
+      links.innerHTML = job.summary
+        ? `<a class="button" href="/api/generation/${job.id}/report?format=markdown">Скачать отчёт (Markdown)</a>` +
+          `<a class="button" href="/api/generation/${job.id}/report?format=json">Скачать отчёт (JSON)</a>`
+        : '';
     }
   }
 
-  function escapeHtml(value) {
+  async function refreshHistory() {
+    try {
+      const jobs = await (await fetch('/api/generation')).json();
+      const card = document.getElementById('historyCard');
+      if (!jobs.length) { card.classList.add('hidden'); return; }
+      card.classList.remove('hidden');
+      const list = document.getElementById('historyList');
+      list.innerHTML = '';
+      for (const job of jobs.slice(0, 10)) {
+        const li = document.createElement('li');
+        li.innerHTML =
+          `<span class="badge status-${job.state}">${statusText(job.state)}</span>` +
+          `<span class="mono">${escapeHtml(job.projectPath)}</span>` +
+          `<span class="hint">${new Date(job.createdAt).toLocaleString()}</span>` +
+          `<span class="hint">${job.summary ? escapeHtml(job.summary.text) : (job.processedClasses + '/' + job.totalClasses)}</span>` +
+          `<a onclick="showJob('${job.id}')">открыть</a>`;
+        list.appendChild(li);
+      }
+    } catch (e) {
+      // history is best-effort
+    }
+  }
+
+  // ---------------------------------------------------------------- helpers
+  function splitList(text) { return text.split(',').map(s => s.trim()).filter(Boolean); }
+  function splitArgs(args) { return args ? args.split(/\s+/).filter(Boolean) : []; }
+  function value(root, selector) { return root.querySelector(selector).value.trim(); }
+  function numberOrNull(id) {
+    const raw = document.getElementById(id).value.trim();
+    return raw ? Number.parseInt(raw, 10) : null;
+  }
+  async function problemText(response) {
+    const problem = await response.json().catch(() => ({}));
+    return problem.detail || problem.error || problem.message || String(response.status);
+  }
+  function escapeHtml(text) {
     const div = document.createElement('div');
-    div.textContent = value == null ? '' : value;
+    div.textContent = text == null ? '' : text;
     return div.innerHTML;
   }
-
-  function escapeAttribute(value) {
-    return escapeHtml(value).replace(/"/g, '&quot;');
-  }
-
+  function escapeAttribute(text) { return escapeHtml(text).replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
   function statusText(status) {
     return {
       RUNNING: 'ВЫПОЛНЯЕТСЯ',
       COMPLETED: 'ЗАВЕРШЕНО',
       FAILED: 'ОШИБКА',
+      CANCELLED: 'ОТМЕНЕНО',
       GENERATED: 'СГЕНЕРИРОВАН',
       WRITTEN: 'ЗАПИСАН',
       VALIDATED: 'ПРОВЕРЕН',
       FIXED_AND_VALIDATED: 'ИСПРАВЛЕН И ПРОВЕРЕН',
-      VALIDATION_FAILED: 'ОШИБКА ВАЛИДАЦИИ'
+      VALIDATION_FAILED: 'ОШИБКА ВАЛИДАЦИИ',
+      SKIPPED: 'ПРОПУЩЕН'
     }[status] || status;
   }
-
-  addMcpSource();
+  function toast(message, kind = 'error') {
+    const el = document.createElement('div');
+    el.className = 'toast ' + kind;
+    el.textContent = message;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 6000);
+  }
 </script>
 </body>
 </html>

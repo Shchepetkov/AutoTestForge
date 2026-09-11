@@ -1,5 +1,6 @@
 package com.autotestforge.ai;
 
+import dev.langchain4j.model.anthropic.AnthropicChatModel;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.ollama.OllamaChatModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
@@ -21,12 +22,39 @@ public final class ChatModels {
                 .build();
     }
 
+    /**
+     * OpenAI, or any OpenAI-compatible endpoint (Azure OpenAI, OpenRouter, Groq,
+     * DeepSeek, Together, LM Studio, vLLM, llama.cpp server...) when
+     * {@code baseUrl} is set.
+     */
+    public static ChatModel openAi(String baseUrl, String apiKey, String modelName, double temperature,
+                                   Duration timeout) {
+        OpenAiChatModel.OpenAiChatModelBuilder builder = OpenAiChatModel.builder()
+                .apiKey(apiKey == null || apiKey.isBlank() ? "not-needed" : apiKey)
+                .modelName(modelName)
+                .temperature(temperature)
+                .timeout(timeout);
+        if (baseUrl != null && !baseUrl.isBlank()) {
+            builder.baseUrl(baseUrl);
+        }
+        return builder.build();
+    }
+
     public static ChatModel openAi(String apiKey, String modelName, double temperature, Duration timeout) {
-        return OpenAiChatModel.builder()
+        return openAi(null, apiKey, modelName, temperature, timeout);
+    }
+
+    public static ChatModel anthropic(String baseUrl, String apiKey, String modelName, double temperature,
+                                      int maxTokens, Duration timeout) {
+        AnthropicChatModel.AnthropicChatModelBuilder builder = AnthropicChatModel.builder()
                 .apiKey(apiKey)
                 .modelName(modelName)
                 .temperature(temperature)
-                .timeout(timeout)
-                .build();
+                .maxTokens(maxTokens)
+                .timeout(timeout);
+        if (baseUrl != null && !baseUrl.isBlank()) {
+            builder.baseUrl(baseUrl);
+        }
+        return builder.build();
     }
 }

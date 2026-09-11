@@ -38,9 +38,38 @@ class GradleBuildUpdaterTest {
                 .contains("testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'")
                 .contains("testImplementation 'org.mockito:mockito-core:5.14.2'")
                 .contains("testImplementation 'org.assertj:assertj-core:3.26.3'")
-                .contains("implementation 'com.google.guava:guava:33.0.0-jre'");
+                .contains("testRuntimeOnly 'org.junit.platform:junit-platform-launcher'")
+                .contains("implementation 'com.google.guava:guava:33.0.0-jre'")
+                .contains("tasks.withType(Test).configureEach {")
+                .contains("useJUnitPlatform()");
         assertThat(updated.indexOf("dependencies {"))
                 .isLessThan(updated.indexOf("testImplementation 'org.junit.jupiter"));
+    }
+
+    @Test
+    @DisplayName("an existing useJUnitPlatform() configuration is not duplicated")
+    void ensureTestDependencies_shouldNotDuplicateJUnitPlatformConfiguration() throws IOException {
+        Files.writeString(projectRoot.resolve("build.gradle.kts"), """
+                plugins {
+                    java
+                }
+
+                dependencies {
+                    testImplementation("org.junit.jupiter:junit-jupiter:5.11.0")
+                }
+
+                tasks.test {
+                    useJUnitPlatform()
+                }
+                """);
+
+        updater.ensureTestDependencies(projectRoot, BuildTool.GRADLE_KOTLIN);
+
+        String updated = Files.readString(projectRoot.resolve("build.gradle.kts"));
+        assertThat(updated.split("useJUnitPlatform", -1)).hasSize(2);
+        assertThat(updated)
+                .contains("testImplementation(\"org.mockito:mockito-core:5.14.2\")")
+                .contains("testRuntimeOnly(\"org.junit.platform:junit-platform-launcher\")");
     }
 
     @Test
@@ -69,6 +98,11 @@ class GradleBuildUpdaterTest {
                     testImplementation 'org.mockito:mockito-core:5.15.0'
                     testImplementation 'org.mockito:mockito-junit-jupiter:5.15.0'
                     testImplementation 'org.assertj:assertj-core:3.27.0'
+                    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+                }
+
+                test {
+                    useJUnitPlatform()
                 }
                 """;
         Files.writeString(projectRoot.resolve("build.gradle"), original);

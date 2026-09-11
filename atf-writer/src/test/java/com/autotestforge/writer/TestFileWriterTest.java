@@ -57,6 +57,43 @@ class TestFileWriterTest {
     }
 
     @Test
+    @DisplayName("alternate output root mirrors the module layout so it can be copied over the project")
+    void writeTestTo_shouldMirrorModuleLayoutUnderOutputRoot() throws IOException {
+        Path sourceFile = projectRoot.resolve(
+                Path.of("services", "orders", "src", "main", "java", "com", "acme", "OrderService.java"));
+        Files.createDirectories(sourceFile.getParent());
+        Files.writeString(sourceFile, "public class OrderService {}");
+        Path outputRoot = projectRoot.resolve("generated-tests");
+
+        Path written = writer.writeTestTo(outputRoot, projectRoot, classAt(sourceFile),
+                new GeneratedTestFile("com.acme", "OrderServiceTest", "class OrderServiceTest {}"));
+
+        assertThat(written).isEqualTo(outputRoot
+                .resolve(Path.of("services", "orders", "src", "test", "java", "com", "acme", "OrderServiceTest.java"))
+                .toAbsolutePath());
+        assertThat(Files.readString(written)).isEqualTo("class OrderServiceTest {}");
+        assertThat(projectRoot.resolve("services/orders/src/test")).doesNotExist();
+    }
+
+    @Test
+    @DisplayName("existing tests are located by convention and absent ones reported as empty")
+    void locateExistingTest_shouldFindConventionalTestFile() throws IOException {
+        Path sourceFile = projectRoot.resolve(Path.of("src", "main", "java", "com", "acme", "Thing.java"));
+        Files.createDirectories(sourceFile.getParent());
+        Files.writeString(sourceFile, "public class Thing {}");
+        JavaClassInfo classInfo = classAt(sourceFile);
+
+        assertThat(writer.locateExistingTest(classInfo, "ThingTest")).isEmpty();
+
+        Path existing = projectRoot.resolve(Path.of("src", "test", "java", "com", "acme", "ThingTest.java"));
+        Files.createDirectories(existing.getParent());
+        Files.writeString(existing, "class ThingTest {}");
+
+        assertThat(writer.locateExistingTest(classInfo, "ThingTest")).contains(existing.toAbsolutePath());
+        assertThat(writer.locateExistingTest(classInfo, "OtherTest")).isEmpty();
+    }
+
+    @Test
     @DisplayName("a source file outside src/main/java is rejected with a clear error")
     void writeTest_shouldThrow_whenSourceFileIsNotUnderMainSourceRoot() {
         Path orphan = projectRoot.resolve("Strange.java");

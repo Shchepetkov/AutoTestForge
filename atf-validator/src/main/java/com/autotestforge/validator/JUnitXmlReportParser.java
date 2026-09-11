@@ -10,11 +10,14 @@ import org.w3c.dom.NodeList;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.IOException;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Stream;
+import java.util.Set;
 
 /**
  * Parses JUnit XML reports produced by Maven Surefire
@@ -37,17 +40,38 @@ public class JUnitXmlReportParser {
         return failures;
     }
 
+    /** Directories that never contain build reports and can be huge. */
+    private static final Set<String> SKIPPED_DIRS = Set.of(".git", ".idea", ".gradle", "node_modules", "src");
+
     private List<Path> findReports(Path projectRoot, String testClassFqn) {
         String reportName = "TEST-" + testClassFqn + ".xml";
-        try (Stream<Path> paths = Files.walk(projectRoot)) {
-            return paths
-                    .filter(Files::isRegularFile)
-                    .filter(path -> path.getFileName().toString().equals(reportName))
-                    .toList();
+        List<Path> reports = new ArrayList<>();
+        try {
+            Files.walkFileTree(projectRoot, new SimpleFileVisitor<>() {
+                @Override
+                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+                    return !dir.equals(projectRoot) && SKIPPED_DIRS.contains(dir.getFileName().toString())
+                            ? FileVisitResult.SKIP_SUBTREE
+                            : FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                    if (attrs.isRegularFile() && file.getFileName().toString().equals(reportName)) {
+                        reports.add(file);
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult visitFileFailed(Path file, IOException exc) {
+                    return FileVisitResult.CONTINUE;
+                }
+            });
         } catch (IOException e) {
             log.warn("Failed to search for test reports under {}", projectRoot, e);
-            return List.of();
         }
+        return reports;
     }
 
     private List<TestFailure> parseReport(Path report) {

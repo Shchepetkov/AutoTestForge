@@ -10,4 +10,12 @@ public interface ExternalContextPort {
     ExternalContextPort NO_OP = (classInfo, request) -> ExternalTestContext.empty();
 
     ExternalTestContext fetchContext(JavaClassInfo classInfo, TestGenerationRequest request);
+
+    /**
+     * Lifecycle hook invoked once per run after the last class has been
+     * processed, letting adapters release per-run resources (for example MCP
+     * server processes that were configured for this run only).
+     */
+    default void onRunFinished(TestGenerationRequest request) {
+    }
 }

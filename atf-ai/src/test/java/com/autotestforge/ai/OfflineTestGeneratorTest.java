@@ -37,7 +37,7 @@ class OfflineTestGeneratorTest {
                 .withFailMessage("generated code must parse, problems: %s", parsed.getProblems())
                 .isTrue();
         assertThat(test.sourceCode())
-                .contains("class_shouldBePublic")
+                .contains("class_shouldBeLoadableAndConcrete")
                 .contains("total_shouldBeDeclaredAsPublicMethod")
                 .contains("discount_shouldBeDeclaredAsPublicMethod");
         // deterministic: same input, same output

@@ -1,29 +1,33 @@
 package com.autotestforge.cli;
 
-import com.autotestforge.cli.config.AtfProperties;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.ExitCodeGenerator;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
+
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * CLI entry point. Usage:
  * <pre>
+ *   java -jar atf-cli.jar scan     --project-path /path/to/project
  *   java -jar atf-cli.jar generate --project-path /path/to/project [--llm ollama] [--validate] [--dry-run]
  * </pre>
+ * The hexagon is wired by {@code atf-spring}'s auto-configuration.
  */
 @SpringBootApplication
-@EnableConfigurationProperties(AtfProperties.class)
 public class AutoTestForgeCliApplication implements CommandLineRunner, ExitCodeGenerator {
 
     private final GenerateCommand generateCommand;
+    private final ScanCommand scanCommand;
     private int exitCode;
 
-    public AutoTestForgeCliApplication(GenerateCommand generateCommand) {
+    public AutoTestForgeCliApplication(GenerateCommand generateCommand, ScanCommand scanCommand) {
         this.generateCommand = generateCommand;
+        this.scanCommand = scanCommand;
     }
 
     public static void main(String[] args) {
@@ -34,8 +38,22 @@ public class AutoTestForgeCliApplication implements CommandLineRunner, ExitCodeG
     public void run(String... args) {
         CommandLine commandLine = new CommandLine(new AtfRootCommand());
         commandLine.addSubcommand(generateCommand);
-        exitCode = commandLine.execute(args);
+        commandLine.addSubcommand(scanCommand);
+        exitCode = commandLine.execute(withoutSpringProperties(args));
     }
+
+    /**
+     * {@code --atf.*}, {@code --spring.*} and {@code --logging.*} arguments are
+     * consumed by Spring Boot as configuration overrides; picocli must not see them.
+     */
+    static String[] withoutSpringProperties(String... args) {
+        return Arrays.stream(args)
+                .filter(arg -> !SPRING_PROPERTY_PREFIXES.stream().anyMatch(arg::startsWith))
+                .toArray(String[]::new);
+    }
+
+    private static final List<String> SPRING_PROPERTY_PREFIXES =
+            List.of("--atf.", "--spring.", "--logging.", "--server.", "--management.");
 
     @Override
     public int getExitCode() {
@@ -44,7 +62,7 @@ public class AutoTestForgeCliApplication implements CommandLineRunner, ExitCodeG
 
     @Command(name = "atf",
             mixinStandardHelpOptions = true,
-            version = "AutoTestForge 0.1.0",
+            version = "AutoTestForge 0.2.0",
             description = "AI-powered unit and integration test generator for Java projects.")
     static class AtfRootCommand implements Runnable {
 
