@@ -76,6 +76,53 @@ class LlmResponseParserTest {
     }
 
     @Test
+    @DisplayName("when the model echoes the class under test first, the block with tests is preferred")
+    void parse_shouldPreferTestClass_whenSeveralBlocksParse() {
+        String response = """
+                Here is the class under test for reference:
+
+                ```java
+                package com.acme;
+
+                public class OrderService {
+                    public void pay() {}
+                }
+                ```
+
+                And the tests:
+
+                ```java
+                package com.acme;
+
+                import org.junit.jupiter.api.Test;
+
+                class OrderServiceTest {
+                    @Test
+                    void pay_shouldWork() {}
+                }
+                ```
+                """;
+
+        GeneratedTestFile test = parser.parse(response, "OrderServiceTest");
+
+        assertThat(test.className()).isEqualTo("OrderServiceTest");
+    }
+
+    @Test
+    @DisplayName("a truncated answer without the closing fence is still recovered")
+    void parse_shouldRecoverUnterminatedCodeBlock() {
+        String response = """
+                ```java
+                package com.acme;
+
+                class OrderServiceTest {
+                }
+                """;
+
+        assertThat(parser.parse(response).className()).isEqualTo("OrderServiceTest");
+    }
+
+    @Test
     @DisplayName("rejects responses that contain no valid Java")
     void parse_shouldThrow_whenResponseIsNotJava() {
         assertThatThrownBy(() -> parser.parse("I am sorry, I cannot help with that."))

@@ -44,9 +44,10 @@ public class DockerTestExecutor implements TestValidatorPort {
     }
 
     @Override
-    public ValidationResult runTests(Path projectRoot, BuildTool buildTool, String testClassFqn) {
+    public ValidationResult runTests(Path projectRoot, BuildTool buildTool, String testClassFqn, Path testFile) {
         String image = buildTool == BuildTool.MAVEN ? mavenImage : gradleImage;
-        List<String> command = buildCommand(buildTool, testClassFqn);
+        List<String> command = buildCommand(buildTool, testClassFqn,
+                TestCommand.moduleOf(projectRoot, testFile).orElse(null));
         log.info("Running {} in container {} for {}", String.join(" ", command), image, projectRoot);
 
         try (GenericContainer<?> container = new GenericContainer<>(image)
@@ -77,10 +78,10 @@ public class DockerTestExecutor implements TestValidatorPort {
         }
     }
 
-    private List<String> buildCommand(BuildTool buildTool, String testClassFqn) {
+    private List<String> buildCommand(BuildTool buildTool, String testClassFqn, Path module) {
         List<String> command = new ArrayList<>();
         command.add(buildTool == BuildTool.MAVEN ? "mvn" : "gradle");
-        command.addAll(TestCommand.arguments(buildTool, testClassFqn));
+        command.addAll(TestCommand.arguments(buildTool, testClassFqn, module));
         return command;
     }
 

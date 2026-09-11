@@ -32,13 +32,13 @@ public class AdaptiveTestExecutor implements TestValidatorPort {
     }
 
     @Override
-    public ValidationResult runTests(Path projectRoot, BuildTool buildTool, String testClassFqn) {
+    public ValidationResult runTests(Path projectRoot, BuildTool buildTool, String testClassFqn, Path testFile) {
         if (preferDocker && isDockerAvailable()) {
-            return dockerExecutor.runTests(projectRoot, buildTool, testClassFqn);
+            return dockerExecutor.runTests(projectRoot, buildTool, testClassFqn, testFile);
         }
         log.info("Validating via local process (docker preferred={}, available={})",
                 preferDocker, dockerAvailable);
-        return localExecutor.runTests(projectRoot, buildTool, testClassFqn);
+        return localExecutor.runTests(projectRoot, buildTool, testClassFqn, testFile);
     }
 
     private boolean isDockerAvailable() {

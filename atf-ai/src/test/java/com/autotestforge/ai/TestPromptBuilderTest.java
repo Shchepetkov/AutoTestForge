@@ -5,6 +5,7 @@ import com.autotestforge.core.domain.ExternalContextSnippet;
 import com.autotestforge.core.domain.ExternalTestContext;
 import com.autotestforge.core.domain.FieldDependency;
 import com.autotestforge.core.domain.GeneratedTestFile;
+import com.autotestforge.core.domain.GenerationContext;
 import com.autotestforge.core.domain.JavaClassInfo;
 import com.autotestforge.core.domain.MethodInfo;
 import com.autotestforge.core.domain.ParameterInfo;
@@ -82,6 +83,65 @@ class TestPromptBuilderTest {
                 .contains("Verify cancelled orders cannot be paid")
                 .contains("Zephyr/TMS XML exports")
                 .contains("Business/TMS coverage");
+    }
+
+    @Test
+    @DisplayName("related project types are embedded: small ones as full source, large ones as public API")
+    void buildGenerationPrompt_shouldIncludeRelatedTypes() {
+        JavaClassInfo order = new JavaClassInfo("com.acme", "Order", ClassKind.RECORD, false,
+                "package com.acme;\n\npublic record Order(long id, String customerEmail) {}", "",
+                List.of(), List.of(), List.of(), List.of(), Path.of("Order.java"), null);
+        JavaClassInfo hugeRepository = new JavaClassInfo("com.acme", "OrderRepository", ClassKind.INTERFACE, false,
+                "x".repeat(5_000), "Persists orders. Thread-safe.", List.of(),
+                List.of(new MethodInfo("findById", "java.util.Optional<com.acme.Order>",
+                        List.of(new ParameterInfo("id", "long")), List.of(), "", List.of(), false)),
+                List.of(), List.of(), Path.of("OrderRepository.java"), "Repository");
+        GenerationContext context = new GenerationContext(ExternalTestContext.empty(), List.of(order, hugeRepository));
+
+        String prompt = builder.buildGenerationPrompt(serviceClass(), context);
+
+        assertThat(prompt)
+                .contains("## Related project types")
+                .contains("### record com.acme.Order")
+                .contains("public record Order(long id, String customerEmail) {}")
+                .contains("### interface com.acme.OrderRepository (@Repository)")
+                .contains("Javadoc: Persists orders.")
+                .contains("- java.util.Optional<com.acme.Order> findById(long id)")
+                .doesNotContain("xxxxxxxxxx");
+        assertThat(builder.buildGenerationPrompt(serviceClass())).doesNotContain("## Related project types");
+    }
+
+    @Test
+    @DisplayName("utility classes with only static methods are not instantiated or mocked")
+    void buildGenerationPrompt_shouldHintStaticUsage_whenAllMethodsAreStatic() {
+        JavaClassInfo utils = new JavaClassInfo("com.acme", "TextUtils", ClassKind.CLASS, false,
+                "public final class TextUtils {}", "", List.of(),
+                List.of(new MethodInfo("reverse", "String", List.of(new ParameterInfo("s", "String")),
+                        List.of(), "", List.of(), true)),
+                List.of(), List.of(), Path.of("TextUtils.java"), null);
+
+        assertThat(builder.buildGenerationPrompt(utils)).contains("All public methods are static");
+    }
+
+    @Test
+    @DisplayName("oversized sources are truncated with a marker instead of blowing the context window")
+    void buildGenerationPrompt_shouldTruncateHugeSources() {
+        JavaClassInfo huge = new JavaClassInfo("com.acme", "Huge", ClassKind.CLASS, false,
+                "y".repeat(60_000), "", List.of(), List.of(method()), List.of(), List.of(), Path.of("Huge.java"), null);
+
+        String prompt = builder.buildGenerationPrompt(huge);
+
+        assertThat(prompt).contains("source truncated by AutoTestForge");
+        assertThat(prompt.length()).isLessThan(50_000);
+    }
+
+    @Test
+    @DisplayName("format retry prompt quotes the parse problem")
+    void buildFormatRetryPrompt_shouldMentionReason() {
+        assertThat(builder.buildFormatRetryPrompt("no code block"))
+                .contains("no code block")
+                .contains("EXACTLY ONE fenced");
+        assertThat(builder.buildFormatRetryPrompt(null)).contains("no Java class was found");
     }
 
     @Test

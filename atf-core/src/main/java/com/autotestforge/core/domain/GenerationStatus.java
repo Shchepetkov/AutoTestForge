@@ -2,7 +2,7 @@ package com.autotestforge.core.domain;
 
 /** Final state of test generation for a single class. */
 public enum GenerationStatus {
-    /** Test generated but not written (dry-run mode). */
+    /** Test generated but not written into the target project (dry-run or alternate output directory). */
     GENERATED,
     /** Test written to the target project; validation was not requested. */
     WRITTEN,
@@ -13,5 +13,11 @@ public enum GenerationStatus {
     /** Test written but still failing after exhausting all fix attempts. */
     VALIDATION_FAILED,
     /** Pipeline error for this class (scan, LLM, parsing or I/O). */
-    FAILED
+    FAILED,
+    /** A test for this class already exists and overwriting was not requested. */
+    SKIPPED;
+
+    public boolean isFailure() {
+        return this == FAILED || this == VALIDATION_FAILED;
+    }
 }
