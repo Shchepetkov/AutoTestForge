@@ -7,6 +7,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 
+import java.util.Arrays;
+import java.util.List;
+
 /**
  * CLI entry point. Usage:
  * <pre>
@@ -36,8 +39,21 @@ public class AutoTestForgeCliApplication implements CommandLineRunner, ExitCodeG
         CommandLine commandLine = new CommandLine(new AtfRootCommand());
         commandLine.addSubcommand(generateCommand);
         commandLine.addSubcommand(scanCommand);
-        exitCode = commandLine.execute(args);
+        exitCode = commandLine.execute(withoutSpringProperties(args));
     }
+
+    /**
+     * {@code --atf.*}, {@code --spring.*} and {@code --logging.*} arguments are
+     * consumed by Spring Boot as configuration overrides; picocli must not see them.
+     */
+    static String[] withoutSpringProperties(String... args) {
+        return Arrays.stream(args)
+                .filter(arg -> !SPRING_PROPERTY_PREFIXES.stream().anyMatch(arg::startsWith))
+                .toArray(String[]::new);
+    }
+
+    private static final List<String> SPRING_PROPERTY_PREFIXES =
+            List.of("--atf.", "--spring.", "--logging.", "--server.", "--management.");
 
     @Override
     public int getExitCode() {

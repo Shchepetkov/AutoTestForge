@@ -7,29 +7,64 @@ on:
 
 jobs:
   build:
+    name: Build & test (JDK ${{ matrix.java }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        java: ['17', '21']
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK ${{ matrix.java }}
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: ${{ matrix.java }}
           cache: maven
 
-      - name: Build and test
-        run: mvn -B verify
+      - name: Build, test and measure coverage
+        run: mvn -B -ntp -Pcoverage verify
 
-      - name: End-to-end smoke run (offline provider, no LLM required)
+      - name: End-to-end - scan the demo project
         run: |
-          java -jar atf-cli/target/atf-cli-0.1.0.jar generate \
-            --project-path examples/demo-project --llm offline --dry-run
+          java -jar atf-cli/target/atf-cli-0.2.0.jar scan \
+            --project-path examples/demo-project --all
 
-      - name: Upload test reports
+      - name: End-to-end - dry run with reports (offline provider, no LLM required)
+        run: |
+          java -jar atf-cli/target/atf-cli-0.2.0.jar generate \
+            --project-path examples/demo-project --llm offline --dry-run --overwrite \
+            --parallelism 2 --report-json build-reports/dry-run.json --report-markdown build-reports/dry-run.md
+          test -s build-reports/dry-run.json
+          grep -q '"status": "GENERATED"' build-reports/dry-run.json
+
+      - name: End-to-end - generate into an output directory
+        run: |
+          java -jar atf-cli/target/atf-cli-0.2.0.jar generate \
+            --project-path examples/demo-project --llm offline --overwrite \
+            --output-dir build-reports/generated-tests
+          test -f build-reports/generated-tests/src/test/java/com/example/demo/OrderServiceTest.java
+
+      - name: End-to-end - write, validate and self-correct in a local process (Docker-free)
+        run: |
+          java -jar atf-cli/target/atf-cli-0.2.0.jar generate \
+            --project-path examples/demo-project --llm offline --overwrite --validate \
+            --atf.validation.prefer-docker=false \
+            --report-markdown build-reports/validate.md
+          grep -q 'VALIDATED' build-reports/validate.md
+
+      - name: Publish report to the job summary
+        if: always() && hashFiles('build-reports/validate.md') != ''
+        run: cat build-reports/validate.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: surefire-reports
-          path: '**/target/surefire-reports/*.xml'
+          name: reports-jdk${{ matrix.java }}
+          path: |
+            **/target/surefire-reports/*.xml
+            **/target/site/jacoco/jacoco.xml
+            build-reports/**
           retention-days: 7

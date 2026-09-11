@@ -35,6 +35,14 @@ class AutoTestForgeCliApplicationTest {
     private AutoTestForgeCliApplication application;
 
     @Test
+    void withoutSpringProperties_shouldDropConfigurationOverrides() {
+        assertThat(AutoTestForgeCliApplication.withoutSpringProperties(
+                "generate", "--atf.validation.prefer-docker=false", "-p", "/repo", "--spring.main.banner-mode=off",
+                "--logging.level.root=debug", "--validate"))
+                .containsExactly("generate", "-p", "/repo", "--validate");
+    }
+
+    @Test
     void contextLoads_withAllPortsWired() {
         assertThat(generateTestsUseCase).isNotNull();
         assertThat(scanProjectUseCase).isNotNull();
