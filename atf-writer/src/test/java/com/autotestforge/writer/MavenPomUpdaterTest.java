@@ -39,7 +39,12 @@ class MavenPomUpdaterTest {
                 .contains("<artifactId>mockito-junit-jupiter</artifactId>")
                 .contains("<artifactId>assertj-core</artifactId>")
                 .contains("<scope>test</scope>")
-                .contains("<version>5.10.2</version>");
+                .contains("<version>5.10.2</version>")
+                .contains("<artifactId>maven-surefire-plugin</artifactId>")
+                .contains("<version>3.5.3</version>");
+
+        updater.ensureTestDependencies(projectRoot);
+        assertThat(Files.readString(projectRoot.resolve("pom.xml"))).isEqualTo(updated);
     }
 
     @Test
@@ -65,7 +70,70 @@ class MavenPomUpdaterTest {
         String updated = Files.readString(projectRoot.resolve("pom.xml"));
         assertThat(updated)
                 .contains("<artifactId>junit-jupiter</artifactId>")
-                .doesNotContain("<version>5.10.2</version>");
+                .doesNotContain("<version>5.10.2</version>")
+                .doesNotContain("<artifactId>maven-surefire-plugin</artifactId>");
+    }
+
+    @Test
+    void shouldPreserveManagedSurefireVersion() throws IOException {
+        writePom(pomWithBuild("""
+                <pluginManagement><plugins><plugin>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>3.2.5</version>
+                </plugin></plugins></pluginManagement>
+                """));
+
+        updater.ensureTestDependencies(projectRoot);
+
+        String updated = Files.readString(projectRoot.resolve("pom.xml"));
+        assertThat(updated).contains("<version>3.2.5</version>")
+                .doesNotContain("<version>3.5.3</version>");
+        assertThat(updated.split("<artifactId>maven-surefire-plugin</artifactId>", -1)).hasSize(2);
+    }
+
+    @Test
+    void shouldUpgradeObsoleteRunnerWithoutDiscardingConfiguration() throws IOException {
+        writePom(pomWithBuild("""
+                <plugins><plugin>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>2.12.4</version>
+                    <configuration><argLine>-Xmx512m</argLine></configuration>
+                </plugin></plugins>
+                """));
+
+        updater.ensureTestDependencies(projectRoot);
+
+        String updated = Files.readString(projectRoot.resolve("pom.xml"));
+        assertThat(updated).contains("<version>3.5.3</version>")
+                .contains("<argLine>-Xmx512m</argLine>")
+                .doesNotContain("<version>2.12.4</version>");
+        assertThat(updated.split("<artifactId>maven-surefire-plugin</artifactId>", -1)).hasSize(2);
+    }
+
+    @Test
+    void shouldPreservePropertyBasedRunnerVersion() throws IOException {
+        writePom(pomWithBuild("""
+                <plugins><plugin>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>${surefire.version}</version>
+                </plugin></plugins>
+                """));
+
+        updater.ensureTestDependencies(projectRoot);
+
+        assertThat(Files.readString(projectRoot.resolve("pom.xml")))
+                .contains("<version>${surefire.version}</version>")
+                .doesNotContain("<version>3.5.3</version>");
+    }
+
+    private String pomWithBuild(String build) {
+        return """
+                <project xmlns="http://maven.apache.org/POM/4.0.0">
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>com.acme</groupId><artifactId>demo</artifactId><version>1.0</version>
+                    <build>%s</build>
+                </project>
+                """.formatted(build);
     }
 
     @Test

@@ -38,9 +38,14 @@ class GradleBuildUpdaterTest {
                 .contains("testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'")
                 .contains("testImplementation 'org.mockito:mockito-core:5.14.2'")
                 .contains("testImplementation 'org.assertj:assertj-core:3.26.3'")
+                .contains("testRuntimeOnly 'org.junit.platform:junit-platform-launcher'")
+                .contains("tasks.named('test', org.gradle.api.tasks.testing.Test)")
+                .contains("useJUnitPlatform()")
                 .contains("implementation 'com.google.guava:guava:33.0.0-jre'");
         assertThat(updated.indexOf("dependencies {"))
                 .isLessThan(updated.indexOf("testImplementation 'org.junit.jupiter"));
+        updater.ensureTestDependencies(projectRoot, BuildTool.GRADLE_GROOVY);
+        assertThat(Files.readString(projectRoot.resolve("build.gradle"))).isEqualTo(updated);
     }
 
     @Test
@@ -57,7 +62,10 @@ class GradleBuildUpdaterTest {
         String updated = Files.readString(projectRoot.resolve("build.gradle.kts"));
         assertThat(updated)
                 .contains("dependencies {")
-                .contains("testImplementation(\"org.junit.jupiter:junit-jupiter:5.10.2\")");
+                .contains("testImplementation(\"org.junit.jupiter:junit-jupiter:5.10.2\")")
+                .contains("testRuntimeOnly(\"org.junit.platform:junit-platform-launcher\")")
+                .contains("tasks.named<org.gradle.api.tasks.testing.Test>(\"test\")")
+                .contains("useJUnitPlatform()");
     }
 
     @Test
@@ -69,6 +77,12 @@ class GradleBuildUpdaterTest {
                     testImplementation 'org.mockito:mockito-core:5.15.0'
                     testImplementation 'org.mockito:mockito-junit-jupiter:5.15.0'
                     testImplementation 'org.assertj:assertj-core:3.27.0'
+                    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.0'
+                }
+                test {
+                    useJUnitPlatform {
+                        includeTags 'fast'
+                    }
                 }
                 """;
         Files.writeString(projectRoot.resolve("build.gradle"), original);
@@ -76,5 +90,26 @@ class GradleBuildUpdaterTest {
         updater.ensureTestDependencies(projectRoot, BuildTool.GRADLE_GROOVY);
 
         assertThat(Files.readString(projectRoot.resolve("build.gradle"))).isEqualTo(original);
+    }
+
+    @Test
+    void shouldConfigureRunnerEvenWhenAllTestLibrariesExist() throws IOException {
+        Files.writeString(projectRoot.resolve("build.gradle"), """
+                dependencies {
+                    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.0'
+                    testImplementation 'org.mockito:mockito-core:5.15.0'
+                    testImplementation 'org.mockito:mockito-junit-jupiter:5.15.0'
+                    testImplementation 'org.assertj:assertj-core:3.27.0'
+                }
+                // TODO: useJUnitPlatform()
+                """);
+
+        updater.ensureTestDependencies(projectRoot, BuildTool.GRADLE_GROOVY);
+
+        String updated = Files.readString(projectRoot.resolve("build.gradle"));
+        assertThat(updated).contains("testRuntimeOnly 'org.junit.platform:junit-platform-launcher'")
+                .contains("tasks.named('test', org.gradle.api.tasks.testing.Test)")
+                .contains("org.junit.jupiter:junit-jupiter:5.11.0")
+                .doesNotContain("org.junit.jupiter:junit-jupiter:5.10.2");
     }
 }
