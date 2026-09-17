@@ -5,6 +5,7 @@ import dev.langchain4j.model.ollama.OllamaChatModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 
 import java.time.Duration;
+import java.util.Map;
 
 /** Factory for the LangChain4j chat models supported out of the box. */
 public final class ChatModels {
@@ -13,11 +14,19 @@ public final class ChatModels {
     }
 
     public static ChatModel ollama(String baseUrl, String modelName, double temperature, Duration timeout) {
+        return ollama(baseUrl, modelName, null, temperature, timeout);
+    }
+
+    public static ChatModel ollama(String baseUrl, String modelName, String apiKey,
+                                  double temperature, Duration timeout) {
         return OllamaChatModel.builder()
                 .baseUrl(baseUrl)
                 .modelName(modelName)
                 .temperature(temperature)
                 .timeout(timeout)
+                .customHeaders(apiKey == null || apiKey.isBlank() ? Map.of()
+                        : Map.of("Authorization", "Bearer " + apiKey))
+                .maxRetries(0)
                 .build();
     }
 
@@ -27,6 +36,7 @@ public final class ChatModels {
                 .modelName(modelName)
                 .temperature(temperature)
                 .timeout(timeout)
+                .maxRetries(0)
                 .build();
     }
 
@@ -39,10 +49,11 @@ public final class ChatModels {
                                              double temperature, Duration timeout) {
         return OpenAiChatModel.builder()
                 .baseUrl(baseUrl)
-                .apiKey(apiKey == null || apiKey.isBlank() ? "not-required" : apiKey)
+                .apiKey(apiKey == null || apiKey.isBlank() ? null : apiKey)
                 .modelName(modelName)
                 .temperature(temperature)
                 .timeout(timeout)
+                .maxRetries(0)
                 .build();
     }
 }

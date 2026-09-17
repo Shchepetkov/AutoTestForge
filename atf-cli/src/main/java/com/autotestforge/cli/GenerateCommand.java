@@ -39,7 +39,7 @@ public class GenerateCommand implements Callable<Integer> {
     private List<String> classes = List.of();
 
     @Option(names = "--llm",
-            description = "LLM provider for this run: ollama, openai or offline (default: configured provider).")
+            description = "LLM provider for this run: ollama, openai, compatible or offline (default: configured provider).")
     private String llmProvider;
 
     @Option(names = "--validate",

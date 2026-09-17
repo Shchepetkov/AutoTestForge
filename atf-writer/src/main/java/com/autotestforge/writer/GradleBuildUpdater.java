@@ -24,6 +24,8 @@ public class GradleBuildUpdater {
     private static final Logger log = LoggerFactory.getLogger(GradleBuildUpdater.class);
 
     private static final Pattern DEPENDENCIES_BLOCK = Pattern.compile("(?m)^\\s*dependencies\\s*\\{");
+    private static final Pattern JUNIT_PLATFORM = Pattern.compile("\\buseJUnitPlatform\\s*(?:\\(|\\{)");
+    private static final String LAUNCHER = "org.junit.platform:junit-platform-launcher";
 
     public void ensureTestDependencies(Path projectRoot, BuildTool buildTool) {
         Path buildFile = projectRoot.resolve(
@@ -38,24 +40,46 @@ public class GradleBuildUpdater {
             newLines.add(dependencyLine(required, buildTool));
             log.info("Adding test dependency {} to {}", required.coordinates(), buildFile);
         }
-        if (newLines.isEmpty()) {
+        if (!content.contains(LAUNCHER)) {
+            // Jupiter publishes a BOM constraint that aligns this runtime dependency.
+            newLines.add(buildTool == BuildTool.GRADLE_KOTLIN
+                    ? "    testRuntimeOnly(\"" + LAUNCHER + "\")"
+                    : "    testRuntimeOnly '" + LAUNCHER + "'");
+        }
+        boolean needsPlatform = !JUNIT_PLATFORM.matcher(withoutComments(content)).find();
+        if (newLines.isEmpty() && !needsPlatform) {
             log.info("All required test dependencies already declared in {}", buildFile);
             return;
         }
 
-        String insertion = String.join(System.lineSeparator(), newLines);
-        Matcher matcher = DEPENDENCIES_BLOCK.matcher(content);
-        String updated = matcher.find()
-                ? content.substring(0, matcher.end()) + System.lineSeparator() + insertion
-                        + content.substring(matcher.end())
-                : content + System.lineSeparator() + "dependencies {" + System.lineSeparator()
-                        + insertion + System.lineSeparator() + "}" + System.lineSeparator();
+        String updated = content;
+        if (!newLines.isEmpty()) {
+            String insertion = String.join(System.lineSeparator(), newLines);
+            Matcher matcher = DEPENDENCIES_BLOCK.matcher(content);
+            updated = matcher.find()
+                    ? content.substring(0, matcher.end()) + System.lineSeparator() + insertion
+                            + content.substring(matcher.end())
+                    : content + System.lineSeparator() + "dependencies {" + System.lineSeparator()
+                            + insertion + System.lineSeparator() + "}" + System.lineSeparator();
+        }
+        if (needsPlatform) {
+            String testTask = buildTool == BuildTool.GRADLE_KOTLIN
+                    ? "tasks.named<org.gradle.api.tasks.testing.Test>(\"test\") {"
+                    : "tasks.named('test', org.gradle.api.tasks.testing.Test) {";
+            updated += System.lineSeparator() + testTask + System.lineSeparator()
+                    + "    useJUnitPlatform()" + System.lineSeparator() + "}" + System.lineSeparator();
+        }
 
         try {
             Files.writeString(buildFile, updated);
         } catch (IOException e) {
             throw new TestWriteException("Failed to update " + buildFile, e);
         }
+    }
+
+    private String withoutComments(String content) {
+        return content.replaceAll("(?s)/\\*.*?\\*/", "")
+                .replaceAll("(?m)//.*$", "");
     }
 
     private String dependencyLine(TestDependency dependency, BuildTool buildTool) {

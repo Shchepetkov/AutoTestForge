@@ -33,15 +33,15 @@ public class LangChain4jTestGenerator implements AiTestGeneratorPort {
         this.chatModel = chatModel;
         this.promptBuilder = promptBuilder;
         this.responseParser = responseParser;
-        this.maxRetries = Math.max(1, maxRetries);
-        this.initialBackoffMillis = initialBackoffMillis;
+        this.maxRetries = Math.min(10, Math.max(1, maxRetries));
+        this.initialBackoffMillis = Math.min(60_000, Math.max(0, initialBackoffMillis));
     }
 
     @Override
     public GeneratedTestFile generate(JavaClassInfo classInfo, String provider, ExternalTestContext externalContext) {
         String prompt = promptBuilder.buildGenerationPrompt(classInfo, externalContext);
         log.debug("Generation prompt for {} ({} chars)", classInfo.fullyQualifiedName(), prompt.length());
-        return responseParser.parse(chatWithRetry(prompt, classInfo.fullyQualifiedName()));
+        return chatWithRetry(prompt, classInfo.fullyQualifiedName());
     }
 
     @Override
@@ -50,23 +50,28 @@ public class LangChain4jTestGenerator implements AiTestGeneratorPort {
                                  ExternalTestContext externalContext) {
         String prompt = promptBuilder.buildFixPrompt(classInfo, previousTest, validationResult, externalContext);
         log.debug("Fix prompt for {} ({} chars)", previousTest.fullyQualifiedName(), prompt.length());
-        return responseParser.parse(chatWithRetry(prompt, classInfo.fullyQualifiedName()));
+        return chatWithRetry(prompt, classInfo.fullyQualifiedName());
     }
 
-    private String chatWithRetry(String prompt, String classFqn) {
+    private GeneratedTestFile chatWithRetry(String prompt, String classFqn) {
         RuntimeException lastError = null;
         for (int attempt = 1; attempt <= maxRetries; attempt++) {
             try {
-                return chatModel.chat(prompt);
+                return responseParser.parse(chatModel.chat(prompt));
             } catch (RuntimeException e) {
                 lastError = e;
-                log.warn("LLM call failed for {} (attempt {}/{}): {}", classFqn, attempt, maxRetries, e.getMessage());
+                // Upstream exception messages may echo Authorization headers, prompts or raw server responses.
+                log.warn("LLM call failed for {} (attempt {}/{}): {}", classFqn, attempt, maxRetries, e.getClass().getSimpleName());
+                if (Thread.currentThread().isInterrupted()) {
+                    throw new LlmException("LLM call was interrupted");
+                }
                 if (attempt < maxRetries) {
-                    sleep(initialBackoffMillis * (1L << (attempt - 1)));
+                    sleep(Math.min(60_000, initialBackoffMillis * (1L << (attempt - 1))));
                 }
             }
         }
-        throw new LlmException("LLM unreachable after " + maxRetries + " attempts for " + classFqn, lastError);
+        throw new LlmException("LLM generation failed after " + maxRetries + " attempts for " + classFqn
+                + " (" + lastError.getClass().getSimpleName() + "). Check the connection, model and its Java output.");
     }
 
     private void sleep(long millis) {

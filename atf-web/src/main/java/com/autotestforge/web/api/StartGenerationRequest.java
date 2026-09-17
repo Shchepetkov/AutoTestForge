@@ -1,5 +1,6 @@
 package com.autotestforge.web.api;
 
+import com.autotestforge.web.llm.LlmConnectionRequest;
 import jakarta.validation.constraints.NotBlank;
 
 import java.util.List;
@@ -28,7 +29,16 @@ public record StartGenerationRequest(
         List<String> contextSources,
         String contextQuery,
         List<McpSourceRequest> mcpSources,
-        List<ContextFileRequest> contextFiles) {
+        List<ContextFileRequest> contextFiles,
+        LlmConnectionRequest llmConnection) {
+
+    /** Keeps existing Java callers, including the MCP adapter, source-compatible. */
+    public StartGenerationRequest(String projectPath, List<String> classes, String llm, boolean validate,
+                                  boolean dryRun, boolean context, List<String> contextSources, String contextQuery,
+                                  List<McpSourceRequest> mcpSources, List<ContextFileRequest> contextFiles) {
+        this(projectPath, classes, llm, validate, dryRun, context, contextSources, contextQuery,
+                mcpSources, contextFiles, null);
+    }
 
     public record McpSourceRequest(
             String name,

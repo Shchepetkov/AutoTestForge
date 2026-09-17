@@ -15,8 +15,13 @@ import org.testcontainers.containers.GenericContainer;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * {@link TestValidatorPort} adapter that executes generated tests inside a
@@ -34,13 +39,23 @@ public class DockerTestExecutor implements TestValidatorPort {
     private final String gradleImage;
     private final Path cacheDir;
     private final JUnitXmlReportParser reportParser;
+    private final Duration timeout;
 
     public DockerTestExecutor(String mavenImage, String gradleImage, Path cacheDir,
                               JUnitXmlReportParser reportParser) {
+        this(mavenImage, gradleImage, cacheDir, reportParser, Duration.ofMinutes(15));
+    }
+
+    public DockerTestExecutor(String mavenImage, String gradleImage, Path cacheDir,
+                              JUnitXmlReportParser reportParser, Duration timeout) {
+        if (timeout == null || timeout.isNegative() || timeout.isZero()) {
+            throw new IllegalArgumentException("Test timeout must be positive");
+        }
         this.mavenImage = mavenImage;
         this.gradleImage = gradleImage;
         this.cacheDir = cacheDir;
         this.reportParser = reportParser;
+        this.timeout = timeout;
     }
 
     @Override
@@ -51,15 +66,25 @@ public class DockerTestExecutor implements TestValidatorPort {
 
         try (GenericContainer<?> container = new GenericContainer<>(image)
                 .withCreateContainerCmdModifier(cmd -> cmd.withEntrypoint("sleep"))
+                .withStartupTimeout(timeout)
                 .withCommand("infinity")
                 .withFileSystemBind(projectRoot.toAbsolutePath().toString(), WORKSPACE, BindMode.READ_WRITE)
                 .withFileSystemBind(ensureCacheDir(buildTool).toString(), cacheMountPoint(buildTool),
                         BindMode.READ_WRITE)) {
             container.start();
-            Container.ExecResult result = container.execInContainer(ExecConfig.builder()
+            FutureTask<Container.ExecResult> execution = new FutureTask<>(() -> container.execInContainer(ExecConfig.builder()
                     .workDir(WORKSPACE)
                     .command(command.toArray(String[]::new))
-                    .build());
+                    .build()));
+            Thread worker = new Thread(execution, "atf-docker-test");
+            worker.setDaemon(true);
+            worker.start();
+            Container.ExecResult result;
+            try {
+                result = execution.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+            } finally {
+                execution.cancel(true);
+            }
             String output = result.getStdout() + System.lineSeparator() + result.getStderr();
             if (result.getExitCode() == 0) {
                 log.info("Container run passed for {}", testClassFqn);
@@ -69,7 +94,9 @@ public class DockerTestExecutor implements TestValidatorPort {
             log.info("Container run failed for {} (exit={}, {} structured failures)",
                     testClassFqn, result.getExitCode(), failures.size());
             return ValidationResult.failure(failures, output);
-        } catch (IOException | InterruptedException e) {
+        } catch (TimeoutException e) {
+            throw new ValidationException("Docker test run timed out after " + timeout + " for " + testClassFqn, e);
+        } catch (ExecutionException | InterruptedException e) {
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }

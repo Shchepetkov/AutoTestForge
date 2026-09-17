@@ -101,7 +101,7 @@ public class AtfConfiguration {
         JUnitXmlReportParser reportParser = new JUnitXmlReportParser();
         return new AdaptiveTestExecutor(
                 new DockerTestExecutor(validation.mavenImage(), validation.gradleImage(),
-                        validation.cacheDir(), reportParser),
+                        validation.cacheDir(), reportParser, validation.timeout()),
                 new LocalProcessTestExecutor(validation.timeout(), reportParser),
                 validation.preferDocker());
     }

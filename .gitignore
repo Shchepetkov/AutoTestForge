@@ -16,6 +16,9 @@ Thumbs.db
 ### AutoTestForge ###
 logs/
 *.log
+workspace/
 
 ### Secrets ###
 .env
+.env.*
+!.env.example

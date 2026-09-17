@@ -20,10 +20,9 @@ import java.util.regex.Pattern;
  */
 public class LlmResponseParser {
 
-    private static final Pattern CODE_BLOCK = Pattern.compile("```(?:java)?\\s*\\n(.*?)```", Pattern.DOTALL);
-
-    private final JavaParser parser = new JavaParser(
-            new ParserConfiguration().setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_17));
+    private static final int MAX_RESPONSE_CHARS = 1_000_000;
+    private static final Pattern CODE_BLOCK = Pattern.compile("```(?:java)?[ \\t]*\\R(.*?)```", Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
+    private static final Pattern THINK_BLOCK = Pattern.compile("\\A\\s*<think>.*?</think>\\s*", Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
 
     /**
      * @throws LlmException when no syntactically valid Java class is found in the response
@@ -32,14 +31,23 @@ public class LlmResponseParser {
         if (llmResponse == null || llmResponse.isBlank()) {
             throw new LlmException("LLM returned an empty response");
         }
-        for (String candidate : candidates(llmResponse)) {
+        if (llmResponse.length() > MAX_RESPONSE_CHARS) {
+            throw new LlmException("LLM response exceeds the maximum supported size");
+        }
+        String answer = llmResponse.strip();
+        while (THINK_BLOCK.matcher(answer).find()) {
+            answer = THINK_BLOCK.matcher(answer).replaceFirst("");
+        }
+        if (answer.regionMatches(true, 0, "<think>", 0, 7)) {
+            throw new LlmException("LLM returned incomplete reasoning without a final Java answer");
+        }
+        for (String candidate : candidates(answer)) {
             Optional<GeneratedTestFile> parsed = tryParse(candidate);
             if (parsed.isPresent()) {
                 return parsed.get();
             }
         }
-        throw new LlmException("LLM response does not contain a syntactically valid Java class. "
-                + "Response starts with: " + preview(llmResponse));
+        throw new LlmException("LLM response does not contain a syntactically valid Java class");
     }
 
     private List<String> candidates(String llmResponse) {
@@ -56,6 +64,9 @@ public class LlmResponseParser {
     }
 
     private Optional<GeneratedTestFile> tryParse(String source) {
+        // JavaParser keeps mutable parsing state; jobs may parse responses concurrently.
+        JavaParser parser = new JavaParser(
+                new ParserConfiguration().setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_17));
         ParseResult<CompilationUnit> result = parser.parse(source);
         if (!result.isSuccessful() || result.getResult().isEmpty()) {
             return Optional.empty();
@@ -64,15 +75,12 @@ public class LlmResponseParser {
         if (unit.getTypes().isEmpty()) {
             return Optional.empty();
         }
-        TypeDeclaration<?> primaryType = unit.getType(0);
+        TypeDeclaration<?> primaryType = unit.getTypes().stream().filter(TypeDeclaration::isPublic)
+                .findFirst().orElse(unit.getType(0));
         String packageName = unit.getPackageDeclaration()
                 .map(pkg -> pkg.getNameAsString())
                 .orElse("");
         return Optional.of(new GeneratedTestFile(packageName, primaryType.getNameAsString(), source));
     }
 
-    private String preview(String response) {
-        String stripped = response.strip();
-        return stripped.substring(0, Math.min(120, stripped.length()));
-    }
 }

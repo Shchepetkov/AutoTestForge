@@ -3,6 +3,7 @@ package com.autotestforge.validator;
 import com.autotestforge.core.domain.BuildTool;
 
 import java.util.List;
+import javax.lang.model.SourceVersion;
 
 /** Builds the build-tool command line that runs a single test class. */
 final class TestCommand {
@@ -11,10 +12,12 @@ final class TestCommand {
     }
 
     static List<String> arguments(BuildTool buildTool, String testClassFqn) {
+        if (testClassFqn == null || !SourceVersion.isName(testClassFqn)) {
+            throw new IllegalArgumentException("Invalid test class name");
+        }
         if (buildTool == BuildTool.MAVEN) {
-            String simpleName = testClassFqn.substring(testClassFqn.lastIndexOf('.') + 1);
             return List.of("-B", "-q", "test",
-                    "-Dtest=" + simpleName,
+                    "-Dtest=" + testClassFqn,
                     "-Dsurefire.failIfNoSpecifiedTests=false");
         }
         return List.of("test", "--tests", testClassFqn, "--console=plain");

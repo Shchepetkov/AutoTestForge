@@ -10,6 +10,7 @@ import com.autotestforge.core.domain.TestGenerationRequest;
 import com.autotestforge.core.port.in.GenerateTestsUseCase;
 import com.autotestforge.web.api.StartGenerationRequest;
 import com.autotestforge.web.config.AtfProperties;
+import com.autotestforge.web.llm.GenerationUseCaseFactory;
 import com.autotestforge.web.security.ProjectAccessPolicy;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
@@ -35,25 +36,27 @@ public class GenerationJobService {
 
     private static final Logger log = LoggerFactory.getLogger(GenerationJobService.class);
 
-    private final GenerateTestsUseCase generateTestsUseCase;
+    private final GenerationUseCaseFactory useCaseFactory;
     private final AtfProperties properties;
     private final ProjectAccessPolicy accessPolicy;
     private final Map<String, GenerationJob> jobs = new ConcurrentHashMap<>();
     private final ExecutorService executor = Executors.newFixedThreadPool(2);
 
-    public GenerationJobService(GenerateTestsUseCase generateTestsUseCase, AtfProperties properties,
+    public GenerationJobService(GenerationUseCaseFactory useCaseFactory, AtfProperties properties,
                                 ProjectAccessPolicy accessPolicy) {
-        this.generateTestsUseCase = generateTestsUseCase;
+        this.useCaseFactory = useCaseFactory;
         this.properties = properties;
         this.accessPolicy = accessPolicy;
     }
 
     public GenerationJob start(StartGenerationRequest request) {
         Path projectPath = accessPolicy.requireAllowedProject(request.projectPath());
+        // Validate connection settings before creating a job or adding work to the queue.
+        GenerateTestsUseCase useCase = useCaseFactory.create(request.llmConnection(), request.llm());
         String id = UUID.randomUUID().toString();
         GenerationJob job = new GenerationJob(id, projectPath.toString());
         jobs.put(id, job);
-        executor.submit(() -> run(job, request, projectPath));
+        executor.submit(() -> run(job, request, projectPath, useCase));
         log.info("Started generation job {} for {}", id, projectPath);
         return job;
     }
@@ -68,7 +71,7 @@ public class GenerationJobService {
                 .toList();
     }
 
-    private void run(GenerationJob job, StartGenerationRequest request, Path projectPath) {
+    private void run(GenerationJob job, StartGenerationRequest request, Path projectPath, GenerateTestsUseCase useCase) {
         try {
             TestGenerationRequest generationRequest = TestGenerationRequest
                     .builder(projectPath)
@@ -80,7 +83,7 @@ public class GenerationJobService {
                     .externalContext(externalContextRequest(request))
                     .progressListener(new JobProgressListener(job))
                     .build();
-            TestGenerationReport report = generateTestsUseCase.generateTests(generationRequest);
+            TestGenerationReport report = useCase.generateTests(generationRequest);
             job.complete(report);
         } catch (Exception e) {
             log.error("Generation job {} failed", job.getId(), e);
