@@ -1,0 +1,28 @@
+services:
+  autotestforge:
+    build:
+      context: .
+    image: autotestforge:local
+    restart: unless-stopped
+    ports:
+      - "${ATF_BIND_ADDRESS:-127.0.0.1}:${ATF_HTTP_PORT:-8080}:8080"
+    environment:
+      ATF_ALLOWED_ROOTS: /workspace
+      ATF_API_TOKEN: ${ATF_API_TOKEN:-}
+      ATF_OLLAMA_BASE_URL: ${ATF_OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      ATF_OLLAMA_MODEL: ${ATF_OLLAMA_MODEL:-qwen2.5-coder:7b}
+      ATF_OLLAMA_TIMEOUT: ${ATF_OLLAMA_TIMEOUT:-10m}
+      ATF_COMPATIBLE_ENABLED: ${ATF_COMPATIBLE_ENABLED:-false}
+      ATF_COMPATIBLE_BASE_URL: ${ATF_COMPATIBLE_BASE_URL:-http://host.docker.internal:8000/v1}
+      ATF_COMPATIBLE_API_KEY: ${ATF_COMPATIBLE_API_KEY:-}
+      ATF_COMPATIBLE_MODEL: ${ATF_COMPATIBLE_MODEL:-qwen2.5-coder}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      SPRING_APPLICATION_JSON: '{"atf":{"validation":{"prefer-docker":false}}}'
+    volumes:
+      - ./workspace:/workspace
+      - atf-cache:/home/autotestforge/.autotestforge/cache
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  atf-cache:

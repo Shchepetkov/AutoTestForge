@@ -9,7 +9,7 @@ import java.util.Map;
 
 /** Same configuration surface as the CLI, bound for the web application. */
 @ConfigurationProperties(prefix = "atf")
-public record AtfProperties(Llm llm, Validation validation, Context context) {
+public record AtfProperties(Llm llm, Validation validation, Context context, Workspace workspace) {
 
     public record Llm(
             String provider,
@@ -17,7 +17,8 @@ public record AtfProperties(Llm llm, Validation validation, Context context) {
             int maxRetries,
             long retryBackoffMillis,
             Ollama ollama,
-            OpenAi openai) {
+            OpenAi openai,
+            Compatible compatible) {
 
         public record Ollama(String baseUrl, String model, Duration timeout) {
         }
@@ -26,6 +27,15 @@ public record AtfProperties(Llm llm, Validation validation, Context context) {
 
             public boolean isConfigured() {
                 return apiKey != null && !apiKey.isBlank();
+            }
+        }
+
+        public record Compatible(boolean enabled, String baseUrl, String apiKey,
+                                 String model, Duration timeout) {
+
+            public boolean isConfigured() {
+                return enabled && baseUrl != null && !baseUrl.isBlank()
+                        && model != null && !model.isBlank();
             }
         }
     }
@@ -59,5 +69,15 @@ public record AtfProperties(Llm llm, Validation validation, Context context) {
             Map<String, String> arguments,
             Duration timeout,
             int maxChars) {
+    }
+
+    /** Filesystem roots that the HTTP and MCP APIs are allowed to inspect or modify. */
+    public record Workspace(List<String> allowedRoots) {
+
+        public Workspace {
+            allowedRoots = allowedRoots == null || allowedRoots.isEmpty()
+                    ? List.of(".")
+                    : List.copyOf(allowedRoots);
+        }
     }
 }

@@ -12,7 +12,7 @@ public interface AiTestGeneratorPort {
     /**
      * Generates a brand-new test class for {@code classInfo}.
      *
-     * @param provider provider override ("ollama", "openai", "offline") or null for the configured default
+     * @param provider provider override ("ollama", "openai", "compatible", "offline") or null for the configured default
      * @throws LlmException when the model is unreachable or returns unusable output
      */
     default GeneratedTestFile generate(JavaClassInfo classInfo, String provider) {

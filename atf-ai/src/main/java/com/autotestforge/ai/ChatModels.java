@@ -29,4 +29,20 @@ public final class ChatModels {
                 .timeout(timeout)
                 .build();
     }
+
+    /**
+     * Connects to any OpenAI-compatible chat-completions endpoint. This covers
+     * self-hosted vLLM, LM Studio, LocalAI and hosted providers that expose the
+     * same protocol (including Qwen-compatible gateways).
+     */
+    public static ChatModel openAiCompatible(String baseUrl, String apiKey, String modelName,
+                                             double temperature, Duration timeout) {
+        return OpenAiChatModel.builder()
+                .baseUrl(baseUrl)
+                .apiKey(apiKey == null || apiKey.isBlank() ? "not-required" : apiKey)
+                .modelName(modelName)
+                .temperature(temperature)
+                .timeout(timeout)
+                .build();
+    }
 }

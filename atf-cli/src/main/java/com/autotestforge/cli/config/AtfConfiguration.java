@@ -76,6 +76,12 @@ public class AtfConfiguration {
                             llm.temperature(), llm.openai().timeout()),
                     promptBuilder, responseParser, llm.maxRetries(), llm.retryBackoffMillis()));
         }
+        if (llm.compatible() != null && llm.compatible().isConfigured()) {
+            providers.put("compatible", new LangChain4jTestGenerator(
+                    ChatModels.openAiCompatible(llm.compatible().baseUrl(), llm.compatible().apiKey(),
+                            llm.compatible().model(), llm.temperature(), llm.compatible().timeout()),
+                    promptBuilder, responseParser, llm.maxRetries(), llm.retryBackoffMillis()));
+        }
         return new RoutingTestGenerator(providers, llm.provider());
     }
 

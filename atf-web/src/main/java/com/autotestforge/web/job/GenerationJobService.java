@@ -10,6 +10,7 @@ import com.autotestforge.core.domain.TestGenerationRequest;
 import com.autotestforge.core.port.in.GenerateTestsUseCase;
 import com.autotestforge.web.api.StartGenerationRequest;
 import com.autotestforge.web.config.AtfProperties;
+import com.autotestforge.web.security.ProjectAccessPolicy;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,20 +37,24 @@ public class GenerationJobService {
 
     private final GenerateTestsUseCase generateTestsUseCase;
     private final AtfProperties properties;
+    private final ProjectAccessPolicy accessPolicy;
     private final Map<String, GenerationJob> jobs = new ConcurrentHashMap<>();
     private final ExecutorService executor = Executors.newFixedThreadPool(2);
 
-    public GenerationJobService(GenerateTestsUseCase generateTestsUseCase, AtfProperties properties) {
+    public GenerationJobService(GenerateTestsUseCase generateTestsUseCase, AtfProperties properties,
+                                ProjectAccessPolicy accessPolicy) {
         this.generateTestsUseCase = generateTestsUseCase;
         this.properties = properties;
+        this.accessPolicy = accessPolicy;
     }
 
     public GenerationJob start(StartGenerationRequest request) {
+        Path projectPath = accessPolicy.requireAllowedProject(request.projectPath());
         String id = UUID.randomUUID().toString();
-        GenerationJob job = new GenerationJob(id, request.projectPath());
+        GenerationJob job = new GenerationJob(id, projectPath.toString());
         jobs.put(id, job);
-        executor.submit(() -> run(job, request));
-        log.info("Started generation job {} for {}", id, request.projectPath());
+        executor.submit(() -> run(job, request, projectPath));
+        log.info("Started generation job {} for {}", id, projectPath);
         return job;
     }
 
@@ -63,10 +68,10 @@ public class GenerationJobService {
                 .toList();
     }
 
-    private void run(GenerationJob job, StartGenerationRequest request) {
+    private void run(GenerationJob job, StartGenerationRequest request, Path projectPath) {
         try {
             TestGenerationRequest generationRequest = TestGenerationRequest
-                    .builder(Path.of(request.projectPath()))
+                    .builder(projectPath)
                     .includedClasses(request.classes() == null ? List.of() : request.classes())
                     .llmProvider(request.llm())
                     .validate(request.validate())

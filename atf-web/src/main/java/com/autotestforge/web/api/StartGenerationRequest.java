@@ -9,7 +9,7 @@ import java.util.List;
  *
  * @param projectPath root of the target project on the server's filesystem
  * @param classes     optional class-name filter
- * @param llm         optional provider override (ollama / openai / offline)
+ * @param llm         optional provider override (ollama / openai / compatible / offline)
  * @param validate    run generated tests in isolation and self-correct
  * @param dryRun      generate without modifying the target project
  * @param context     fetch business/TMS context from configured MCP sources

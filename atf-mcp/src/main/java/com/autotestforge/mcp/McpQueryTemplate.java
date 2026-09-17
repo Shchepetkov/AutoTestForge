@@ -24,7 +24,8 @@ public final class McpQueryTemplate {
                 "className", classInfo.className(),
                 "fullyQualifiedName", classInfo.fullyQualifiedName(),
                 "packageName", classInfo.packageName(),
-                "projectPath", projectPath == null ? "" : projectPath.toString(),
+                // Stable slash format keeps prompts and MCP queries identical on Windows and Linux.
+                "projectPath", projectPath == null ? "" : projectPath.toString().replace('\\', '/'),
                 "methods", methods(classInfo));
         String rendered = resolvedTemplate;
         for (Map.Entry<String, String> entry : values.entrySet()) {

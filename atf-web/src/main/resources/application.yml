@@ -13,13 +13,20 @@ atf:
     max-retries: 3
     retry-backoff-millis: 2000
     ollama:
-      base-url: http://localhost:11434
-      model: llama3.1
-      timeout: 5m
+      base-url: ${ATF_OLLAMA_BASE_URL:http://localhost:11434}
+      model: ${ATF_OLLAMA_MODEL:llama3.1}
+      timeout: ${ATF_OLLAMA_TIMEOUT:5m}
     openai:
       api-key: ${OPENAI_API_KEY:}
       model: gpt-4o-mini
       timeout: 3m
+    # Any OpenAI-compatible endpoint: vLLM, LM Studio, LocalAI, Qwen gateway, etc.
+    compatible:
+      enabled: ${ATF_COMPATIBLE_ENABLED:false}
+      base-url: ${ATF_COMPATIBLE_BASE_URL:http://localhost:8000/v1}
+      api-key: ${ATF_COMPATIBLE_API_KEY:}
+      model: ${ATF_COMPATIBLE_MODEL:qwen2.5-coder}
+      timeout: ${ATF_COMPATIBLE_TIMEOUT:5m}
   validation:
     max-fix-attempts: 2
     prefer-docker: true
@@ -42,6 +49,12 @@ atf:
       #   query-template: "Find requirements and business rules for ${fullyQualifiedName}. Methods: ${methods}"
       #   timeout: 30s
       #   max-chars: 8000
+  workspace:
+    # Comma-separated on a server, for example: /workspace,/srv/projects.
+    allowed-roots: ${ATF_ALLOWED_ROOTS:.}
+  security:
+    # Leave empty for local development. Always set a long random value on a public server.
+    api-token: ${ATF_API_TOKEN:}
       # - name: zephyr
       #   enabled: true
       #   command: npx

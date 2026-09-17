@@ -128,10 +128,13 @@
           <option value="">по умолчанию из конфигурации</option>
           <option value="ollama">ollama (локально)</option>
           <option value="openai">openai</option>
+          <option value="compatible">OpenAI-compatible (Qwen / vLLM / LM Studio)</option>
           <option value="offline">offline (без LLM)</option>
         </select>
       </div>
     </div>
+    <label for="apiToken">API token (только если задан на сервере)</label>
+    <input type="password" id="apiToken" autocomplete="current-password" placeholder="Bearer token">
     <div class="checks">
       <label><input type="checkbox" id="validate"> Валидировать в песочнице и самоисправлять</label>
       <label><input type="checkbox" id="dryRun"> Пробный запуск без записи файлов</label>
@@ -190,6 +193,7 @@
     btn.disabled = true;
     const mcpSources = collectMcpSources();
     const contextFiles = await readContextFiles();
+    sessionStorage.setItem('atfApiToken', document.getElementById('apiToken').value);
     const body = {
       projectPath: document.getElementById('projectPath').value.trim(),
       classes: document.getElementById('classes').value.split(',').map(s => s.trim()).filter(Boolean),
@@ -205,7 +209,7 @@
     try {
       const response = await fetch('/api/generation', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: apiHeaders(true),
         body: JSON.stringify(body)
       });
       if (!response.ok) {
@@ -312,7 +316,7 @@
   function poll(id) {
     clearInterval(pollTimer);
     pollTimer = setInterval(async () => {
-      const response = await fetch('/api/generation/' + id);
+      const response = await fetch('/api/generation/' + id, {headers: apiHeaders(false)});
       if (!response.ok) return;
       const job = await response.json();
       render(job);
@@ -322,6 +326,16 @@
       }
     }, 1500);
   }
+
+  function apiHeaders(json) {
+    const headers = {};
+    if (json) headers['Content-Type'] = 'application/json';
+    const token = document.getElementById('apiToken').value.trim();
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    return headers;
+  }
+
+  document.getElementById('apiToken').value = sessionStorage.getItem('atfApiToken') || '';
 
   function render(job) {
     const state = document.getElementById('jobState');

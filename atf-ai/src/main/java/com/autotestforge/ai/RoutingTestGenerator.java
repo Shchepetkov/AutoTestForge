@@ -12,7 +12,7 @@ import java.util.TreeMap;
 
 /**
  * Routes generation requests to a concrete provider ("ollama", "openai",
- * "offline"). The provider can be overridden per request (CLI flag {@code --llm},
+ * "compatible", "offline"). The provider can be overridden per request (CLI flag {@code --llm},
  * web form field); otherwise the configured default is used.
  */
 public class RoutingTestGenerator implements AiTestGeneratorPort {

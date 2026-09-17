@@ -20,7 +20,8 @@ public record AtfProperties(Llm llm, Validation validation, Context context) {
             int maxRetries,
             long retryBackoffMillis,
             Ollama ollama,
-            OpenAi openai) {
+            OpenAi openai,
+            Compatible compatible) {
 
         public record Ollama(String baseUrl, String model, Duration timeout) {
         }
@@ -29,6 +30,15 @@ public record AtfProperties(Llm llm, Validation validation, Context context) {
 
             public boolean isConfigured() {
                 return apiKey != null && !apiKey.isBlank();
+            }
+        }
+
+        public record Compatible(boolean enabled, String baseUrl, String apiKey,
+                                 String model, Duration timeout) {
+
+            public boolean isConfigured() {
+                return enabled && baseUrl != null && !baseUrl.isBlank()
+                        && model != null && !model.isBlank();
             }
         }
     }

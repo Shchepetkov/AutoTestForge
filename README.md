@@ -156,19 +156,76 @@ java -jar atf-cli/target/atf-cli-0.1.0.jar generate \
 
 В Web UI можно не редактировать `application.yml`: добавьте несколько MCP-источников прямо в форме запуска или загрузите XML-экспорт Zephyr/TMS. Загруженные файлы передаются в prompt как текстовый контекст; LLM должна использовать их для сценариев и добавить в тестовый класс JavaDoc-раздел `Business/TMS coverage` с краткой оценкой покрытых сценариев и пробелов.
 
+## AutoTestForge как MCP-сервер
+
+Web-приложение публикует stateless MCP Streamable HTTP endpoint `POST /mcp`. Он предназначен для IDE, AI-агентов и других MCP-клиентов и отдает небольшой контекст по запросу вместо пересылки всего репозитория.
+
+| Tool | Назначение |
+|---|---|
+| `inspect_project` | Компактный список Java-классов и количество связей между ними |
+| `get_class_context` | API, зависимости и окружение одного класса; исходный код включается отдельно и ограничивается по размеру |
+| `generate_tests` | Асинхронный запуск агентного цикла; `dryRun` по умолчанию равен `true` |
+| `get_generation_job` | Прогресс и результаты запущенной генерации |
+
+Пример конфигурации MCP-клиента для локального сервера:
+
+```json
+{
+  "mcpServers": {
+    "autotestforge": {
+      "url": "http://localhost:8080/mcp",
+      "headers": {
+        "Authorization": "Bearer ${ATF_API_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+Формат файла конфигурации зависит от MCP-клиента. Если `ATF_API_TOKEN` не задан, заголовок не требуется.
+
+## Любая OpenAI-compatible модель
+
+Кроме Ollama и OpenAI, AutoTestForge умеет обращаться к любому endpoint с OpenAI-compatible Chat Completions API: vLLM, LM Studio, LocalAI, Qwen-совместимому шлюзу и другим провайдерам.
+
+```bash
+export ATF_COMPATIBLE_ENABLED=true
+export ATF_COMPATIBLE_BASE_URL=http://localhost:8000/v1
+export ATF_COMPATIBLE_MODEL=qwen2.5-coder
+export ATF_COMPATIBLE_API_KEY=
+
+java -jar atf-cli/target/atf-cli-0.1.0.jar generate \
+  --project-path examples/demo-project --llm compatible --validate
+```
+
+Для Qwen через Ollama отдельный провайдер не нужен: загрузите нужную модель и передайте `--atf.llm.ollama.model=<имя-модели>` вместе с `--llm ollama`.
+
+## Развертывание на личном сервере
+
+1. Скопируйте `.env.example` в `.env` и замените `ATF_API_TOKEN` на длинное случайное значение.
+2. Создайте каталог `workspace` рядом с `compose.yml` и поместите в него проекты, которые разрешено анализировать.
+3. Выполните `docker compose up --build -d`.
+
+Web UI будет доступен на `http://localhost:8080`, MCP endpoint — на `http://localhost:8080/mcp`. Контейнер видит только `/workspace`; путь вне `ATF_ALLOWED_ROOTS` отклоняется до сканирования или записи. Runtime-образ содержит JDK 17 и Maven, поэтому локальная валидация тестов работает внутри контейнера без доступа к Docker socket хоста.
+
+Если Ollama уже запущена на Docker-хосте, задайте `ATF_OLLAMA_BASE_URL=http://host.docker.internal:11434`. Внешний HTTP-порт меняется через `ATF_HTTP_PORT` без редактирования `compose.yml`. По умолчанию Compose публикует его только на `127.0.0.1`; задавайте `ATF_BIND_ADDRESS=0.0.0.0` только для осознанного прямого доступа, а на сервере лучше использовать обратный прокси.
+
 ## Конфигурация
 
 Все настройки находятся под префиксом `atf.*` (`application.yml`, переменные окружения или флаги вида `--atf.llm.provider=...`):
 
 | Параметр | Значение по умолчанию | Описание |
 |---|---|---|
-| `atf.llm.provider` | `ollama` | Провайдер по умолчанию: `ollama`, `openai`, `offline` |
+| `atf.llm.provider` | `ollama` | Провайдер по умолчанию: `ollama`, `openai`, `compatible`, `offline` |
 | `atf.llm.temperature` | `0.2` | Температура сэмплирования (ниже = более детерминированные тесты) |
 | `atf.llm.max-retries` | `3` | Повторные вызовы LLM с экспоненциальной задержкой |
 | `atf.llm.ollama.base-url` | `http://localhost:11434` | Адрес Ollama |
 | `atf.llm.ollama.model` | `llama3.1` | Любая локальная модель (mistral, codellama, ...) |
 | `atf.llm.openai.api-key` | `${OPENAI_API_KEY}` | Ключ OpenAI; провайдер регистрируется только при его наличии |
 | `atf.llm.openai.model` | `gpt-4o-mini` | Модель OpenAI |
+| `atf.llm.compatible.enabled` | `false` | Включить универсальный OpenAI-compatible провайдер |
+| `atf.llm.compatible.base-url` | `http://localhost:8000/v1` | URL vLLM, LM Studio, LocalAI или другого совместимого сервера |
+| `atf.llm.compatible.model` | `qwen2.5-coder` | Имя модели на совместимом сервере |
 | `atf.validation.max-fix-attempts` | `2` | Раунды самоисправления на класс |
 | `atf.validation.prefer-docker` | `true` | Использовать Docker, когда он доступен; иначе локальный процесс |
 | `atf.validation.maven-image` | `maven:3.9-eclipse-temurin-17` | Образ песочницы для Maven-проектов |
@@ -177,6 +234,8 @@ java -jar atf-cli/target/atf-cli-0.1.0.jar generate \
 | `atf.context.sources[].command` | — | Команда запуска stdio MCP-сервера |
 | `atf.context.sources[].tool-name` | — | MCP tool для поиска бизнес/TMS-информации |
 | `atf.context.sources[].query-template` | встроенный шаблон | Поисковый шаблон с плейсхолдерами класса |
+| `atf.workspace.allowed-roots` | `.` | Разрешенные корни проектов для Web/MCP API |
+| `atf.security.api-token` | пусто | Bearer token для `/api/**` и `/mcp`; задайте при публикации в сеть |
 
 ## Архитектурные заметки
 
