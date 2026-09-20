@@ -1,0 +1,5 @@
+- Run from repository root: mvn -B verify (also the CI build command).
+- Target module and prerequisites: mvn -B -pl atf-core -am test; substitute affected module as needed.
+- Built entrypoints: java -jar atf-web/target/atf-web-0.1.0.jar; java -jar atf-cli/target/atf-cli-0.1.0.jar generate --help.
+- PowerShell does not use backslash for shell line continuation; translate README multiline shell examples accordingly.
+- Serena CLI on this Windows installation: set $env:PYTHONIOENCODING='utf-8' before commands such as serena memories check; the CLI emits Unicode checkmarks unsupported by cp1251.

@@ -1,0 +1,3 @@
+- Root pom.xml is authoritative: Java 17, Maven reactor; Spring Boot parent 3.5.3.
+- LangChain4j Ollama follows a separate beta version property from the LangChain4j BOM; do not unify those version properties blindly.
+- JavaParser stays inside scanner adapters; Spring and provider implementation types must not enter core.

@@ -1,0 +1,4 @@
+- Repository authority: AGENTS.md; inspect root pom.xml for actual module membership. atf-spring is an architectural role in the constitution but is not currently a root Maven module.
+- Hexagonal boundaries: framework-free atf-core owns domain, ports and orchestration; scanner/ai/mcp/writer/validator are driven adapters; cli/web are driving adapters.
+- examples/demo-project is an independent Maven project, outside the root reactor.
+- For dependency baseline and version policy: `mem:tech_stack`. For execution commands: `mem:suggested_commands`. For engineering contracts: `mem:conventions`. For completion checks: `mem:task_completion`.

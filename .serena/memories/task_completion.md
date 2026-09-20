@@ -1,0 +1,4 @@
+- Verify affected test, test class, module, then dependent modules when contracts change.
+- Significant cross-module changes require mvn -B verify.
+- Constitution requests mvn -B -Pcoverage verify when coverage behavior matters; check that a coverage profile exists before treating that command as coverage verification (root pom currently defines none).
+- Inspect final diff; preserve user edits, architecture and compatibility; update public behavior docs. Report only checks actually executed successfully.
